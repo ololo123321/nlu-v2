@@ -1,6 +1,7 @@
 from typing import List
 import numpy as np
-from .base import SpanExtended
+
+from src.data.base import SpanExtended
 
 
 # TODO: протестировать!!1!

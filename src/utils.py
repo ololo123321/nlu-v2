@@ -1,5 +1,6 @@
 import random
 import re
+import logging
 from datetime import datetime
 from collections import defaultdict
 from functools import wraps
@@ -42,6 +43,49 @@ def train_test_valid_split(
     test, valid = train_test_split(test_valid, seed=seed, train_frac=test_frac)
 
     return train, valid, test
+
+
+class LoggerMixin:
+    """
+    Для создания единообразных логгеров
+    """
+    def __init__(self, logger_parent_name: str = None, add_stream_handler: bool = False, **kwargs):
+        """
+        if add_stream_handler:
+            if use_with_hydra:
+                сообщения будут дублироваться: одно и то же сообщение будет написано в двух форматах:
+                в формате hydra и в формате Formatter
+            else:
+                сообщения будут писать в консоль один раз в формете Formatter
+        else:
+            if use_with_hydra:
+                сообщения будут писать в консоль один раз в формете hydra
+            else:
+                сообщения не будут писаться в консоль
+        """
+        super().__init__(**kwargs)
+        self.logger = None
+        self.logger_parent_name = logger_parent_name
+        self.add_stream_handler = add_stream_handler
+        self.set_logger()
+
+    def set_logger(self):
+        logger_name = self.__class__.__name__
+        if self.logger_parent_name is not None:
+            logger_name = self.logger_parent_name + '.' + logger_name
+            self.logger = logging.getLogger(logger_name)
+            self.logger.propagate = True
+        else:
+            self.logger = logging.getLogger(logger_name)
+            if self.add_stream_handler:
+                formatter = logging.Formatter(
+                    fmt='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%y-%m-%d %H:%M:%S'
+                )
+                console = logging.StreamHandler()
+                console.setFormatter(formatter)
+                self.logger.addHandler(console)
+            self.logger.setLevel(logging.DEBUG)
 
 
 # TODO: упразднить truncated; сделать так, чтобы колонки выводились в зависиомости от контента d
@@ -285,14 +329,18 @@ def get_filtered_by_length_chunks(
 
 
 def log(func):
-    """данный декоратор вешается только на методы классов!"""
+    """
+    предполагается, что данный декоратор будет вешаться на методы отнаследованных от LoggerMixin классов
+    """
     @wraps(func)
     def logged(self, *args, **kwargs):
-        print(f"{func.__name__} started.")
+        func_name = func.__name__
+        self.logger.debug(f"{func_name} started.")
         t0 = datetime.now()
         res = func(self, *args, **kwargs)
-        time_elapsed = datetime.now() - t0
-        print(f"{func.__name__} finished. Time elapsed: {time_elapsed}")
+        t1 = datetime.now()
+        time_elapsed = t1 - t0
+        self.logger.debug(f"{func_name} finished. Time elapsed: {time_elapsed}")
         return res
     return logged
 

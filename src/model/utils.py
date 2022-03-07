@@ -3,6 +3,9 @@ import tensorflow as tf
 import numpy as np
 
 
+tf = tf.compat.v1
+
+
 def get_labels_mask(labels_2d: tf.Tensor, values: tf.Tensor, sequence_len: tf.Tensor) -> tf.Tensor:
     """
     Получение маски: mask[i, j] = any(labels[i, j] == v for v in values)

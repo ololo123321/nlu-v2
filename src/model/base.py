@@ -2,9 +2,8 @@ import random
 import os
 import json
 import math
-from typing import Dict, List, Callable, Tuple, Iterable
+from typing import Dict, List, Callable, Tuple, Iterable, NamedTuple
 from abc import ABC, abstractmethod
-from collections import namedtuple
 
 import tensorflow as tf
 import numpy as np
@@ -13,8 +12,11 @@ from bert.modeling import BertModel, BertConfig
 from bert.optimization import create_optimizer
 
 from src.data.base import Example
-from src.utils import train_test_split, get_filtered_by_length_chunks, log
+from src.utils import train_test_split, get_filtered_by_length_chunks, log, LoggerMixin
 from src.model.layers import StackedBiRNN
+
+
+tf = tf.compat.v1
 
 
 class ModeKeys:
@@ -23,13 +25,20 @@ class ModeKeys:
     TEST = "test"  # don't need labels, dropout off
 
 
-BertInputs = namedtuple(
+BertInputs = NamedTuple(
     "BertInputs",
-    ["input_ids", "input_mask", "segment_ids", "first_pieces_coords", "num_tokens", "num_pieces"]
+    [
+        ("input_ids", List[List[int]]),
+        ("input_mask", List[List[int]]),
+        ("segment_ids", List[List[int]]),
+        ("first_pieces_coords", List[List[int]]),
+        ("num_tokens", List[int]),
+        ("num_pieces", List[int])
+    ]
 )
 
 
-class BaseModel(ABC):
+class BaseModel(ABC, LoggerMixin):
     """
     Interface for all models
 
@@ -62,11 +71,21 @@ class BaseModel(ABC):
             "num_warmup_steps": 10000
         }
     }
+
+    # train.py
+    tf.reset_default_graph()
+    sess = get_session()
+    model = BertForCoreferenceResolutionMentionRanking(sess=sess, config=config)
+    model.build(mode=ModeKeys.TRAIN)
+    model.save_config(model_dir=MODEL_DIR)
+    model.reset_weights(bert_dir=bert_dir)
+
     """
 
     model_scope = "model"
 
-    def __init__(self, sess: tf.Session = None, config: Dict = None):
+    def __init__(self, sess: tf.Session = None, config: Dict = None, logger_parent_name: str = None):
+        super().__init__(logger_parent_name=logger_parent_name)
         self.sess = sess
         self.config = config
 
@@ -185,12 +204,12 @@ class BaseModel(ABC):
         """
         if model_dir is not None:
             if os.path.isdir(model_dir):
-                print(f"model dir {model_dir} exists")
+                self.logger.info(f"model dir {model_dir} exists")
             else:
                 os.makedirs(model_dir, exist_ok=True)
-                print(f"model dir {model_dir} created")
+                self.logger.info(f"model dir {model_dir} created")
             checkpoint_path = os.path.join(model_dir, "model.ckpt")
-            print(f"checkpoint path: {checkpoint_path}")
+            self.logger.info(f"checkpoint path: {checkpoint_path}")
 
             if scope_to_save is not None:
                 var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope_to_save)
@@ -200,7 +219,7 @@ class BaseModel(ABC):
         else:
             checkpoint_path = None
             saver = None
-            print("model dir is None, so checkpoints will not be saved")
+            self.logger.info("model dir is None, so checkpoints will not be saved")
 
         # релзиовано так для возможности выбора train_op:
         # 1) обнолвять все веса
@@ -218,7 +237,7 @@ class BaseModel(ABC):
         num_epoch_steps = math.ceil(len(chunks_train) / batch_size)
         best_score = -1
         num_steps_wo_improvement = 0
-        verbose_fn = verbose_fn if verbose_fn is not None else print
+        verbose_fn = verbose_fn if verbose_fn is not None else print  # TODO: изменить
         train_loss = []
 
         for epoch in range(self.config["training"]["num_epochs"]):
@@ -239,35 +258,36 @@ class BaseModel(ABC):
             # pycharm bug:
             # Cannot find reference {mean, std} in __init__.pyi | __init__.pxd
             # so, np.mean(train_loss) highlights yellow
-            print(f"epoch {epoch} finished. mean train loss: {np.array(train_loss).mean()}. evaluation starts.")
+            self.logger.info(f"epoch {epoch} finished. mean train loss: {np.array(train_loss).mean()}")
+            self.logger.info("evaluation starts.")
             performance_info = self.evaluate(examples=examples_valid, batch_size=batch_size)
             if verbose:
                 verbose_fn(performance_info)
             score = performance_info["score"]
 
-            print("current score:", score)
+            self.logger.info("current score:", score)
 
             if score > best_score:
-                print("!!! new best score:", score)
+                self.logger.info("!!! new best score:", score)
                 best_score = score
                 num_steps_wo_improvement = 0
 
                 if saver is not None:
                     saver.save(self.sess, checkpoint_path)
-                    print(f"saved new head to {checkpoint_path}")
+                    self.logger.info(f"saved new head to {checkpoint_path}")
             else:
                 num_steps_wo_improvement += 1
-                print("best score:", best_score)
-                print("steps wo improvement:", num_steps_wo_improvement)
+                self.logger.info("best score:", best_score)
+                self.logger.info("steps wo improvement:", num_steps_wo_improvement)
 
                 if num_steps_wo_improvement == self.config["training"]["max_epochs_wo_improvement"]:
-                    print("training finished due to max number of steps wo improvement encountered.")
+                    self.logger.info("training finished due to max number of steps wo improvement encountered.")
                     break
 
-            print("=" * 50)
+            self.logger.info("=" * 50)
 
         if saver is not None:
-            print(f"restoring model from {checkpoint_path}")
+            self.logger.info(f"restoring model from {checkpoint_path}")
             saver.restore(self.sess, checkpoint_path)
 
     @log
@@ -302,14 +322,14 @@ class BaseModel(ABC):
         verbose_fn = verbose_fn if verbose_fn is not None else print
 
         if model_dir is None:
-            print("[WARNING] model dir is not set => evaluation on test data will be done on last weights, "
+            self.logger.info("[WARNING] model dir is not set => evaluation on test data will be done on last weights, "
                   "which might differ from best ones")
 
         sess_config = tf.ConfigProto()
         sess_config.gpu_options.allow_growth = True
 
         for i, (train_files, test_files) in enumerate(folds):
-            print(f"FOLDS {i}")
+            self.logger.info(f"FOLDS {i}")
 
             train_files_set = set(train_files)
             test_files_set = set(test_files)
@@ -322,9 +342,9 @@ class BaseModel(ABC):
                 examples_train_valid, train_frac=train_frac, seed=228
             )
 
-            print("num train examples:", len(examples_train))
-            print("num valid examples:", len(examples_valid))
-            print("num test examples:", len(examples_test))
+            self.logger.info("num train examples:", len(examples_train))
+            self.logger.info("num valid examples:", len(examples_valid))
+            self.logger.info("num test examples:", len(examples_test))
 
             # TODO: lr schedule depends on num train steps, which depends on num train samples and batch size.
 
@@ -340,17 +360,17 @@ class BaseModel(ABC):
                     verbose=verbose,
                     verbose_fn=verbose_fn
                 )
-                print("best valid scores:")
+                self.logger.info("best valid scores:")
                 d_valid = self.evaluate(examples=examples_valid)
                 verbose_fn(d_valid)
-                print("\ntest scores:")
+                self.logger.info("\ntest scores:")
                 d_test = self.evaluate(examples=examples_test)
                 verbose_fn(d_test)
 
             scores_valid.append(d_valid["score"])
             scores_test.append(d_test["score"])
 
-            print("=" * 80)
+            self.logger.info("=" * 80)
 
         # pycharm bug:
         # Cannot find reference {mean, std} in __init__.pyi | __init__.pxd
@@ -358,9 +378,9 @@ class BaseModel(ABC):
         scores_valid = np.array(scores_valid)
         scores_test = np.array(scores_test)
 
-        print(f"scores valid: {[round(x, 4) for x in scores_valid]} "
+        self.logger.info(f"scores valid: {[round(x, 4) for x in scores_valid]} "
               f"(mean {round(scores_valid.mean(), 4)}, std {round(scores_valid.std(), 4)})")
-        print(f"scores test: {[round(x, 4) for x in scores_test]} "
+        self.logger.info(f"scores test: {[round(x, 4) for x in scores_test]} "
               f"(mean {round(scores_test.mean(), 4)}, std {round(scores_test.std(), 4)})")
 
         return scores_valid, scores_test

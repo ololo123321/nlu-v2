@@ -52,4 +52,3 @@ https://arxiv.org/pdf/1906.02437.pdf - здесь в таблице 8 предс
 * [ ] попробовать поменять таргет: label(i, j) = {1, если сущности i и j принадлежат одной компоненте, 0 - иначе}
 * [ ] linking pairs -> agglomerative clustering (https://arxiv.org/pdf/1606.01323.pdf)
 * [ ] dropout на BertForCoreferenceResolutionV3.w (ибо эта матрица содержит большинство обучаемых параметров)
-# nlu-v2

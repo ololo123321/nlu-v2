@@ -13,6 +13,9 @@ from src.model.ner import BertForNerAsSequenceLabeling
 from src.utils import get_entity_spans, batches_gen, get_filtered_by_length_chunks, log
 
 
+tf = tf.compat.v1
+
+
 class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
     """
     сущности известны в виде [start, end, label]

@@ -10,6 +10,9 @@ from src.data.base import Example
 from src.utils import batches_gen, mst, get_filtered_by_length_chunks, log
 
 
+tf = tf.compat.v1
+
+
 class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
     def __init__(self, sess: tf.Session = None, config: Dict = None, rel_enc: Dict = None):
         super().__init__(sess=sess, config=config, rel_enc=rel_enc)

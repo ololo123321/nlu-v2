@@ -1,0 +1,25 @@
+defaults:
+  - _self_
+  - hydra: hydra_default
+
+training:
+  num_epochs: 100
+  batch_size: 16
+  max_epochs_wo_improvement: 10
+
+model:
+  __target__: ???
+  pretrained_dir: ???
+  checkpoint_path: ???
+
+tokenizer:
+  _target_: ???
+  pretrained_dir: ${model.pretrained_dir}
+
+optimizer:
+  init_lr: 2e-5
+  num_steps: ???  # TODO: выводить из числа эпох и числа примеров
+  num_warmup_steps: ???  # TODO: выводить из числа эпох и числа примеров
+
+dataset:
+  max_length: ???
