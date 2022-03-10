@@ -2,12 +2,12 @@ defaults:
   - _self_
   - hydra: hydra_default
 
-model:
+model_cls:
   _target_: hydra.utils.get_class
   path: ???
-  pretrained_dir: ???
 
-model_config:
+model:
+  pretrained_dir: ???
   birnn:
     use: false
   bert:

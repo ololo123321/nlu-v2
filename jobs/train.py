@@ -36,24 +36,26 @@ def main(cfg: DictConfig):
     with open(os.path.join(cfg.model.pretrained_dir, "bert_config.json")) as f:
         bert_config = json.load(f)
 
-    model_config = dict(cfg.model_config)
-    # TODO: избавиться от этого, вынеся логику формирования батчей в коллатор
-    model_config["model"]["bert"]["pad_token_id"] = tokenizer.vocab["[PAD]"]
-    model_config["model"]["bert"]["cls_token_id"] = tokenizer.vocab["[CLS]"]
-    model_config["model"]["bert"]["sep_token_id"] = tokenizer.vocab["[SEP]"]
-    model_config["model"]["bert"]["params"] = bert_config
-    model_config["model"]["bert"]["params"].update(model_config["model"]["bert"]["params_updates"])
+    cfg_dict = dict(cfg)
+    cfg_dict["model"]["bert"]["pad_token_id"] = tokenizer.vocab["[PAD]"]
+    cfg_dict["model"]["bert"]["cls_token_id"] = tokenizer.vocab["[CLS]"]
+    cfg_dict["model"]["bert"]["sep_token_id"] = tokenizer.vocab["[SEP]"]
+    cfg_dict["model"]["bert"]["params"] = bert_config
+    cfg_dict["model"]["bert"]["params"].update(cfg_dict["model"]["bert"]["params_updates"])
 
     sess = get_session()
-    model = hydra.utils.instantiate(cfg.model)(sess=sess, config=model_config)
+    model_cls = hydra.utils.instantiate(cfg.model_cls)
+    model = model_cls(sess=sess, config=cfg_dict)
     model.build(mode=ModeKeys.TRAIN)
     model.reset_weights(bert_dir=cfg.model.pretrained_dir)
 
     model.train(
         examples_train=ds_train.data,
         examples_valid=ds_valid.data,
-        model_dir=cfg.model_dir,
-        verbose=True
+        model_dir=cfg.output_dir,
+        scope_to_save=None,
+        verbose=True,
+        verbose_fn=None
     )
 
 

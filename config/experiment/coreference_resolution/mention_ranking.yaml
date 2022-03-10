@@ -1,8 +1,8 @@
 # @package _global_
-model:
+model_cls:
   path: src.model.coreference_resolution.BertForCoreferenceResolutionMentionRanking
 
-model_config:
+model:
   coref:
     use_birnn: false
     rnn:
@@ -35,6 +35,6 @@ dataset:
   _target_: src.data.datasets.CoreferenceResolutionDataset
 
 validation:
-  path_true: ???
-  path_pred: ???
+  path_true: /tmp/gold.conll
+  path_pred: /tmp/pred.conll
   scorer_path: ???
