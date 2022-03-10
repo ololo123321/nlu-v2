@@ -1,6 +1,8 @@
 # @package _global_
 model:
-  __target__: src.model.coreference_resolution.BertForCoreferenceResolutionMentionRanking
+  path: src.model.coreference_resolution.BertForCoreferenceResolutionMentionRanking
+
+model_config:
   coref:
     use_birnn: false
     rnn:
