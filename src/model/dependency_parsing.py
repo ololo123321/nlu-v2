@@ -1,16 +1,12 @@
 from typing import Dict, List
 
-import tensorflow as tf
 import numpy as np
 
 from src.model.base import BaseModeDependencyParsing, BaseModelBert, ModeKeys
 from src.model.layers import GraphEncoder, GraphEncoderInputs
 from src.model.utils import get_additive_mask
 from src.data.base import Example
-from src.utils import batches_gen, mst, get_filtered_by_length_chunks, log
-
-
-tf = tf.compat.v1
+from src.utils import batches_gen, mst, get_filtered_by_length_chunks, log, tf
 
 
 class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):

@@ -1,6 +1,6 @@
 # import pytest
 # import numpy as np
-# import tensorflow as tf
+# tf = import_tensorflow()
 #
 # from src.model.utils import infer_entities_bounds
 #

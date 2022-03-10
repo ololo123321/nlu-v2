@@ -1,6 +1,5 @@
 from typing import Dict, List
 
-import tensorflow as tf
 import numpy as np
 
 from src.data.base import Example, Entity, Arc
@@ -10,10 +9,7 @@ from src.model.layers import StackedBiRNN, GraphEncoder, GraphEncoderInputs
 from src.model.utils import upper_triangular, get_entities_representation, get_sent_pairs_to_predict_for
 from src.metrics import classification_report, classification_report_ner
 from src.model.ner import BertForNerAsSequenceLabeling
-from src.utils import get_entity_spans, batches_gen, get_filtered_by_length_chunks, log
-
-
-tf = tf.compat.v1
+from src.utils import get_entity_spans, batches_gen, get_filtered_by_length_chunks, log, tf
 
 
 class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):

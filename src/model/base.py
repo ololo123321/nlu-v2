@@ -5,18 +5,14 @@ import math
 from typing import Dict, List, Callable, Tuple, Iterable, NamedTuple
 from abc import ABC, abstractmethod
 
-import tensorflow as tf
 import numpy as np
 import tqdm
 from bert.modeling import BertModel, BertConfig
 from bert.optimization import create_optimizer
 
 from src.data.base import Example
-from src.utils import train_test_split, get_filtered_by_length_chunks, log, LoggerMixin, ModeKeys
+from src.utils import train_test_split, get_filtered_by_length_chunks, log, LoggerMixin, ModeKeys, tf
 from src.model.layers import StackedBiRNN
-
-
-tf = tf.compat.v1
 
 
 BertInputs = NamedTuple(

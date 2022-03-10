@@ -1,5 +1,4 @@
 import copy
-import tensorflow as tf
 
 from src.model.ner import BertForNerAsSequenceLabeling, BertForNerAsDependencyParsing
 from src.model.coreference_resolution import (
@@ -10,6 +9,7 @@ from src.model.coreference_resolution import (
 from src.model.dependency_parsing import BertForDependencyParsing
 from src.model.relation_extraction import BertForRelationExtraction
 from src.data.base import Example, Entity, Token, Span, Arc
+from src.utils import tf
 
 
 def build_examples():

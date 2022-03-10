@@ -1,14 +1,12 @@
 from typing import Dict, List
 
-import tensorflow as tf
-
 from src.data.base import Example, Entity
 from src.data.postprocessing import get_valid_spans
 from src.model.base import BaseModelNER, BaseModelBert, ModeKeys
 from src.model.layers import GraphEncoder, GraphEncoderInputs
 from src.model.utils import upper_triangular
 from src.metrics import classification_report, classification_report_ner
-from src.utils import get_entity_spans, batches_gen, get_filtered_by_length_chunks, log
+from src.utils import get_entity_spans, batches_gen, get_filtered_by_length_chunks, log, tf
 
 
 class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):

@@ -1,6 +1,5 @@
-from typing import Tuple
 from collections import namedtuple
-import tensorflow as tf
+from src.utils import tf
 
 
 class MLP(tf.keras.layers.Layer):

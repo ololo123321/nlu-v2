@@ -11,6 +11,11 @@ import numpy as np
 from src.data.base import Span, Example
 
 
+import tensorflow as tf
+if tf.__version__.split(".")[0] == "2":
+    tf = tf.compat.v1
+
+
 class ModeKeys:
     TRAIN = "train"  # need labels, dropout on
     VALID = "validation"  # need labels, dropout off

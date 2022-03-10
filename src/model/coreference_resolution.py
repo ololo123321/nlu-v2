@@ -2,7 +2,6 @@ import copy
 from typing import Dict, List
 from collections import defaultdict
 
-import tensorflow as tf
 import numpy as np
 
 from src.data.base import Example, Arc
@@ -16,10 +15,7 @@ from src.model.utils import (
     get_sent_ids_to_predict_for
 )
 from src.metrics import get_coreferense_resolution_metrics
-from src.utils import batches_gen, get_connected_components, parse_conll_metrics, log, classification_report_to_string
-
-
-tf = tf.compat.v1
+from src.utils import batches_gen, get_connected_components, parse_conll_metrics, log, classification_report_to_string, tf
 
 
 # TODO: span size features

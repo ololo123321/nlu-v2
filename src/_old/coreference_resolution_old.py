@@ -7,7 +7,7 @@ from itertools import chain, groupby, combinations
 from abc import ABC, abstractmethod
 from collections import defaultdict
 
-import tensorflow as tf
+tf = import_tensorflow()
 import tensorflow_hub as hub
 import numpy as np
 
