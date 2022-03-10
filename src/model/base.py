@@ -12,17 +12,11 @@ from bert.modeling import BertModel, BertConfig
 from bert.optimization import create_optimizer
 
 from src.data.base import Example
-from src.utils import train_test_split, get_filtered_by_length_chunks, log, LoggerMixin
+from src.utils import train_test_split, get_filtered_by_length_chunks, log, LoggerMixin, ModeKeys
 from src.model.layers import StackedBiRNN
 
 
 tf = tf.compat.v1
-
-
-class ModeKeys:
-    TRAIN = "train"  # need labels, dropout on
-    VALID = "valid"  # need labels, dropout off
-    TEST = "test"  # don't need labels, dropout off
 
 
 BertInputs = NamedTuple(
@@ -31,7 +25,7 @@ BertInputs = NamedTuple(
         ("input_ids", List[List[int]]),
         ("input_mask", List[List[int]]),
         ("segment_ids", List[List[int]]),
-        ("first_pieces_coords", List[List[int]]),
+        ("first_pieces_coords", List[List[Tuple[int, int]]]),
         ("num_tokens", List[int]),
         ("num_pieces", List[int])
     ]
@@ -156,6 +150,12 @@ class BaseModel(ABC, LoggerMixin):
         TODO: подумать, мб можно сделать лучше
         """
 
+    @abstractmethod
+    def verbose_fn(self, metrics: Dict) -> None:
+        """
+        как и какие метрики отображать при обучении
+        """
+
     # общие методы для всех моделей
 
     def build(self, mode: str = ModeKeys.TRAIN):
@@ -237,7 +237,7 @@ class BaseModel(ABC, LoggerMixin):
         num_epoch_steps = math.ceil(len(chunks_train) / batch_size)
         best_score = -1
         num_steps_wo_improvement = 0
-        verbose_fn = verbose_fn if verbose_fn is not None else print  # TODO: изменить
+        verbose_fn = verbose_fn if verbose_fn is not None else self.verbose_fn
         train_loss = []
 
         for epoch in range(self.config["training"]["num_epochs"]):

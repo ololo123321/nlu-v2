@@ -1,9 +1,8 @@
 import os
-import shutil
 import re
 import tqdm
 import unicodedata
-from typing import List, Union, Pattern, Callable, IO
+from typing import List, Union, Pattern, Callable, IO, Iterable
 from collections import defaultdict
 
 from src.data.base import (
@@ -30,10 +29,10 @@ from src.data.exceptions import (
 )
 
 
-def parse_collection(
+def load_collection(
         data_dir: str,
         n: int = None,
-        tokens_pattern: Union[str, Pattern] = None,
+        tokens_expression: Union[str, Pattern] = None,
         ignore_bad_examples: bool = False,
         read_fn: Callable = None
 ) -> List[Example]:
@@ -50,11 +49,9 @@ def parse_collection(
     print(f"num annotated texts: {len(names_to_use)}")
 
     names_to_parse = names_to_use[:n]
-    if tokens_pattern is not None:
-        if isinstance(tokens_pattern, str):
-            tokens_expression = re.compile(tokens_pattern)
-        else:
-            tokens_expression = tokens_pattern
+    if tokens_expression is not None:
+        if isinstance(tokens_expression, str):
+            tokens_expression = re.compile(tokens_expression)
     else:
         tokens_expression = TOKENS_EXPRESSION
 
@@ -443,7 +440,7 @@ def get_invalid_char_indices(text):
     return res
 
 
-def remove_bad_ids(s, bad_ids):
+def remove_bad_ids(s: str, bad_ids: Iterable[int]) -> str:
     s_clean = ""
     start = 0
     for end in bad_ids:
@@ -510,7 +507,7 @@ def remove_role_index(s: str) -> str:
     return s
 
 
-def simplify(example: Example):
+def simplify(example: Example) -> Example:
     """
     упрощение графа путём удаления тривиальных сущностей и рёбер
 
@@ -775,7 +772,7 @@ def to_brat(
                     if entity.id not in events:
                         id_event = event_counter[x.filename]
                         events[entity.id] = Event(
-                            id=id_event,
+                            id=str(id_event),
                             trigger=entity.id,
                             label=entity.label,
                         )
@@ -795,7 +792,7 @@ def to_brat(
             # события
             for event in events.values():
                 assert event.id is not None
-                id_event = get_id(event.id, "E")
+                id_event = get_id(str(event.id), "E")
                 line = f"{id_event}\t{event.label}:{event.trigger}"
                 role2count = defaultdict(int)
                 args_str = ""

@@ -16,7 +16,7 @@ from src.model.utils import (
     get_sent_ids_to_predict_for
 )
 from src.metrics import get_coreferense_resolution_metrics
-from src.utils import batches_gen, get_connected_components, parse_conll_metrics, log
+from src.utils import batches_gen, get_connected_components, parse_conll_metrics, log, classification_report_to_string
 
 
 tf = tf.compat.v1
@@ -295,6 +295,14 @@ class BaseBertForCoreferenceResolution(BaseModeCoreferenceResolution, BaseModelB
                         arc = Arc(id=id_arc, head=head.id, dep=dep.id, rel=self.coref_rel)
                         x.arcs.append(arc)
 
+    def verbose_fn(self, d: Dict):
+        self.logger.info(f'loss:, {d["loss"]}')
+        self.logger.info(f'score: {d["score"]}')
+        self.logger.info(f'num_entities: {d["num_entities"]}')
+        self.logger.info(f'num_chains_true: {d["num_chains_true"]}')
+        self.logger.info(f'num_chains_pred: {d["num_chains_pred"]}')
+        self.logger.info(classification_report_to_string(d["metrics"]))
+
 
 class BertForCoreferenceResolutionMentionPair(BaseBertForCoreferenceResolution):
     def __init__(self, sess: tf.Session = None, config: Dict = None):
@@ -516,15 +524,15 @@ class BertForCoreferenceResolutionMentionPair(BaseBertForCoreferenceResolution):
         # print("total loss:", total_loss)
         # print("denominator:", loss_denominator)
 
-        to_conll(examples=examples, path=self.config["valid"]["path_true"])
-        to_conll(examples=examples_valid_copy, path=self.config["valid"]["path_pred"])
+        to_conll(examples=examples, path=self.config["validation"]["path_true"])
+        to_conll(examples=examples_valid_copy, path=self.config["validation"]["path_pred"])
 
         metrics = {}
         for metric in ["muc", "bcub", "ceafm", "ceafe", "blanc"]:
             stdout = get_coreferense_resolution_metrics(
-                path_true=self.config["valid"]["path_true"],
-                path_pred=self.config["valid"]["path_pred"],
-                scorer_path=self.config["valid"]["scorer_path"],
+                path_true=self.config["validation"]["path_true"],
+                path_pred=self.config["validation"]["path_pred"],
+                scorer_path=self.config["validation"]["scorer_path"],
                 metric=metric
             )
             is_blanc = metric == "blanc"
@@ -754,15 +762,15 @@ class BertForCoreferenceResolutionMentionRanking(BaseBertForCoreferenceResolutio
         # compute performance info
         loss = total_loss / loss_denominator
 
-        to_conll(examples=examples, path=self.config["valid"]["path_true"])
-        to_conll(examples=examples_valid_copy, path=self.config["valid"]["path_pred"])
+        to_conll(examples=examples, path=self.config["validation"]["path_true"])
+        to_conll(examples=examples_valid_copy, path=self.config["validation"]["path_pred"])
 
         metrics = {}
         for metric in ["muc", "bcub", "ceafm", "ceafe", "blanc"]:
             stdout = get_coreferense_resolution_metrics(
-                path_true=self.config["valid"]["path_true"],
-                path_pred=self.config["valid"]["path_pred"],
-                scorer_path=self.config["valid"]["scorer_path"],
+                path_true=self.config["validation"]["path_true"],
+                path_pred=self.config["validation"]["path_pred"],
+                scorer_path=self.config["validation"]["scorer_path"],
                 metric=metric
             )
             is_blanc = metric == "blanc"

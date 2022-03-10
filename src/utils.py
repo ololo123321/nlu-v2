@@ -11,6 +11,12 @@ import numpy as np
 from src.data.base import Span, Example
 
 
+class ModeKeys:
+    TRAIN = "train"  # need labels, dropout on
+    VALID = "validation"  # need labels, dropout off
+    TEST = "test"  # don't need labels, dropout off
+
+
 def train_test_split(
     examples: List,
     train_frac: float = 0.7,

@@ -80,7 +80,7 @@ common_config = {
         "maxlen": 128,
         "window": 1
     },
-    "valid": {}  # чтоб пайчарм не подчёркивал ниже
+    "validation": {}  # чтоб пайчарм не подчёркивал ниже
 }
 
 folds = [
@@ -213,7 +213,7 @@ def test_bert_for_cr_mention_pair():
             "use_dep_prior": False
         }
     }
-    config["valid"] = {
+    config["validation"] = {
         "path_true": "/tmp/gold.conll",
         "path_pred": "/tmp/pred.conll",
         "scorer_path": "/home/vitaly/reference-coreference-scorers/scorer.pl"
@@ -252,7 +252,7 @@ def test_bert_for_cr_mention_ranking():
             "use_dep_prior": False
         }
     }
-    config["valid"] = {
+    config["validation"] = {
         "path_true": "/tmp/gold.conll",
         "path_pred": "/tmp/pred.conll",
         "scorer_path": "/home/vitaly/reference-coreference-scorers/scorer.pl"
@@ -291,7 +291,7 @@ def test_bert_for_cr_mention_ranking_new_inference():
             "use_dep_prior": False
         }
     }
-    config["valid"] = {
+    config["validation"] = {
         "path_true": "/tmp/gold.conll",
         "path_pred": "/tmp/pred.conll",
         "scorer_path": "/home/vitaly/reference-coreference-scorers/scorer.pl"

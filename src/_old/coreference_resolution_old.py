@@ -1666,25 +1666,25 @@ class BertForCoreferenceResolutionV51(BertForCoreferenceResolutionV5):
             examples=self.examples_valid_copy,
             chunks=examples,
             batch_size=batch_size,
-            window=self.config["valid"]["window"],
+            window=self.config["validation"]["window"],
         )
 
         to_conll(
             examples=self.examples_valid,
-            path=self.config["valid"]["path_true"]
+            path=self.config["validation"]["path_true"]
         )
 
         to_conll(
             examples=self.examples_valid_copy,
-            path=self.config["valid"]["path_pred"]
+            path=self.config["validation"]["path_pred"]
         )
 
         metrics = {}
         for metric in ["muc", "bcub", "ceafm", "ceafe", "blanc"]:
             stdout = get_coreferense_resolution_metrics(
-                path_true=self.config["valid"]["path_true"],
-                path_pred=self.config["valid"]["path_pred"],
-                scorer_path=self.config["valid"]["scorer_path"],
+                path_true=self.config["validation"]["path_true"],
+                path_pred=self.config["validation"]["path_pred"],
+                scorer_path=self.config["validation"]["scorer_path"],
                 metric=metric
             )
             # print(metric)
@@ -1834,25 +1834,25 @@ class BertForCoreferenceResolutionV6(BertForCoreferenceResolutionV5):
             examples=self.examples_valid_copy,
             chunks=examples,
             batch_size=batch_size,
-            window=self.config["valid"]["window"],
+            window=self.config["validation"]["window"],
         )
 
         to_conll(
             examples=self.examples_valid,
-            path=self.config["valid"]["path_true"]
+            path=self.config["validation"]["path_true"]
         )
 
         to_conll(
             examples=self.examples_valid_copy,
-            path=self.config["valid"]["path_pred"]
+            path=self.config["validation"]["path_pred"]
         )
 
         metrics = {}
         for metric in ["muc", "bcub", "ceafm", "ceafe", "blanc"]:
             stdout = get_coreferense_resolution_metrics(
-                path_true=self.config["valid"]["path_true"],
-                path_pred=self.config["valid"]["path_pred"],
-                scorer_path=self.config["valid"]["scorer_path"],
+                path_true=self.config["validation"]["path_true"],
+                path_pred=self.config["validation"]["path_pred"],
+                scorer_path=self.config["validation"]["scorer_path"],
                 metric=metric
             )
             is_blanc = metric == "blanc"
@@ -1875,25 +1875,25 @@ class BertForCoreferenceResolutionV6(BertForCoreferenceResolutionV5):
                 examples=self.examples_test_copy,
                 chunks=self.chunks_test,
                 batch_size=batch_size,
-                window=self.config["valid"]["window"],
+                window=self.config["validation"]["window"],
             )
 
             to_conll(
                 examples=self.examples_test,
-                path=self.config["valid"]["path_true"]
+                path=self.config["validation"]["path_true"]
             )
 
             to_conll(
                 examples=self.examples_test_copy,
-                path=self.config["valid"]["path_pred"]
+                path=self.config["validation"]["path_pred"]
             )
 
             d["test_score"] = 0.0
             for metric in ["muc", "bcub", "ceafm", "ceafe", "blanc"]:
                 stdout = get_coreferense_resolution_metrics(
-                    path_true=self.config["valid"]["path_true"],
-                    path_pred=self.config["valid"]["path_pred"],
-                    scorer_path=self.config["valid"]["scorer_path"],
+                    path_true=self.config["validation"]["path_true"],
+                    path_pred=self.config["validation"]["path_pred"],
+                    scorer_path=self.config["validation"]["scorer_path"],
                     metric=metric
                 )
                 is_blanc = metric == "blanc"
