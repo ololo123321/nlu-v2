@@ -29,6 +29,9 @@ model:
       num_labels: 1
       use_dep_prior: false
 
+dataset:
+  _target_: src.data.datasets.CoreferenceResolutionDataset
+
 validation:
   path_true: ???
   path_pred: ???
