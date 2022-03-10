@@ -1,4 +1,5 @@
 model:
+  __target__: src.model.coreference_resolution.BertForCoreferenceResolutionMentionRanking
   coref:
     use_birnn: false
     rnn:
