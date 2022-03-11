@@ -48,7 +48,11 @@ def load_collection(
     print(f"num .ann files: {len(answers)}")
     print(f"num annotated texts: {len(names_to_use)}")
 
-    names_to_parse = names_to_use[:n]
+    if (n is not None) and (n > 0):
+        names_to_parse = names_to_use[:n]
+    else:
+        names_to_parse = names_to_use
+
     if tokens_expression is not None:
         if isinstance(tokens_expression, str):
             tokens_expression = re.compile(tokens_expression)

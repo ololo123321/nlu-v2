@@ -60,5 +60,5 @@ inference:
 train_data_dir: ???
 valid_data_dir: ???
 output_dir: ???
-num_examples_train: null
-num_examples_valid: null
+num_examples_train: -1
+num_examples_valid: -1
