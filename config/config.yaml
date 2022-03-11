@@ -48,6 +48,8 @@ training:
   num_epochs: 100
   batch_size: 16
   max_epochs_wo_improvement: 10
+  num_train_samples: ???
+  maxlen: 256
 
 validation:
   window: ${dataset.window}

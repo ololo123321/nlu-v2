@@ -261,10 +261,10 @@ class BaseModel(ABC, LoggerMixin):
                 verbose_fn(performance_info)
             score = performance_info["score"]
 
-            self.logger.info("current score:", score)
+            self.logger.info(f"current score: {score}")
 
             if score > best_score:
-                self.logger.info("!!! new best score:", score)
+                self.logger.info(f"!!! new best score: {score}")
                 best_score = score
                 num_steps_wo_improvement = 0
 
@@ -273,8 +273,8 @@ class BaseModel(ABC, LoggerMixin):
                     self.logger.info(f"saved new head to {checkpoint_path}")
             else:
                 num_steps_wo_improvement += 1
-                self.logger.info("best score:", best_score)
-                self.logger.info("steps wo improvement:", num_steps_wo_improvement)
+                self.logger.info(f"best score: {best_score}")
+                self.logger.info(f"steps wo improvement: {num_steps_wo_improvement}")
 
                 if num_steps_wo_improvement == self.config["training"]["max_epochs_wo_improvement"]:
                     self.logger.info("training finished due to max number of steps wo improvement encountered.")

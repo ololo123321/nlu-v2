@@ -61,8 +61,7 @@ class BaseDataset(ABC):
         self.data = [x for x in self.data if self._is_valid_example(x)]
 
     def preprocess(self):
-        for x in tqdm.tqdm(self.data):
-            self._preprocess_example(x)
+        self.data = [self._preprocess_example(x) for x in tqdm.tqdm(self.data)]
 
     def check(self):  # TODO: криетрии корректности к документам и кусочкам могут быть разными
         """
@@ -79,14 +78,16 @@ class BaseDataset(ABC):
         """
 
     @abstractmethod
-    def _preprocess_example(self, x: Example) -> None:
+    def _preprocess_example(self, x: Example) -> Example:
         """
         весь препроцессинг реализуется здесь:
         * разделение на предложения
         * удаление дубликатов сущностей и рёбер
+
+        возвращает новый инстанс
         """
 
-    def _apply_bpe(self, x: Example):
+    def _apply_bpe(self, x: Example) -> None:
         """
         word-piece токенизация
         """
@@ -96,12 +97,11 @@ class BaseDataset(ABC):
 
 
 class CoreferenceResolutionDataset(BaseDataset):
-    def _preprocess_example(self, x: Example) -> None:
+    def _preprocess_example(self, x: Example) -> Example:
         # remove redundant entities and edged
         x = simplify(x)
 
-        if self.mode == ModeKeys.VALID:
-            self._assign_chain_ids(x)
+        self._assign_chain_ids(x)
 
         # split documents in chunks
         # tokenize chunks, remove bad chunks
@@ -121,6 +121,7 @@ class CoreferenceResolutionDataset(BaseDataset):
                         and (sum(len(t.pieces) for t in chunk.tokens) <= self.max_chunk_length):
                     enumerate_entities(chunk)
                     x.chunks.append(chunk)
+        return x
 
     # TODO: доделать
     def _is_valid_example(self, x: Example) -> bool:

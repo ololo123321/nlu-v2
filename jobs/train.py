@@ -9,11 +9,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from src.model.base import ModeKeys
 from src.model.utils import get_session
 
-
 logger = logging.getLogger("train")
 
 
-@hydra.main(config_path="../config", config_name="train")
+@hydra.main(config_path="../config", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     tokenizer = hydra.utils.instantiate(cfg.tokenizer)
@@ -35,17 +34,18 @@ def main(cfg: DictConfig):
     logger.info("setup model...")
     with open(os.path.join(cfg.model.pretrained_dir, "bert_config.json")) as f:
         bert_config = json.load(f)
+    bert_config.update(cfg["model"]["bert"]["params_updates"])
 
-    cfg_dict = dict(cfg)
-    cfg_dict["model"]["bert"]["pad_token_id"] = tokenizer.vocab["[PAD]"]
-    cfg_dict["model"]["bert"]["cls_token_id"] = tokenizer.vocab["[CLS]"]
-    cfg_dict["model"]["bert"]["sep_token_id"] = tokenizer.vocab["[SEP]"]
-    cfg_dict["model"]["bert"]["params"] = bert_config
-    cfg_dict["model"]["bert"]["params"].update(cfg_dict["model"]["bert"]["params_updates"])
+    cfg["model"]["bert"]["pad_token_id"] = tokenizer.vocab["[PAD]"]
+    cfg["model"]["bert"]["cls_token_id"] = tokenizer.vocab["[CLS]"]
+    cfg["model"]["bert"]["sep_token_id"] = tokenizer.vocab["[SEP]"]
+    cfg["model"]["bert"]["params"] = bert_config
+    cfg["training"]["num_train_samples"] = sum(len(x.chunks) for x in ds_train.data)
 
+    # TODO: подгрузка чекпоинта
     sess = get_session()
     model_cls = hydra.utils.instantiate(cfg.model_cls)
-    model = model_cls(sess=sess, config=cfg_dict)
+    model = model_cls(sess=sess, config=cfg)
     model.build(mode=ModeKeys.TRAIN)
     model.reset_weights(bert_dir=cfg.model.pretrained_dir)
 
