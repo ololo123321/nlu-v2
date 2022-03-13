@@ -34,7 +34,6 @@ optimizer:
 dataset:
   _target_: ???
   data: null
-  mode: ???
   tokenizer: ???
   tokens_expression: null
   ignore_bad_examples: true
@@ -61,7 +60,6 @@ inference:
 # for training
 train_data_dir: ???
 valid_data_dir: ???
-output_dir: ???
 num_examples_train: -1
 num_examples_valid: -1
 scope_to_save: null
@@ -70,3 +68,7 @@ scope_to_save: null
 test_data_dir: ???
 model_dir: ???
 scope_to_load: ${scope_to_save}
+num_examples_test: -1
+
+# for all modes
+output_dir: ???

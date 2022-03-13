@@ -53,22 +53,26 @@ class BaseDataset(ABC, LoggerMixin):
             read_fn=read_fn,
             verbose_fn=self.logger.info
         )
+        return self
 
-    def filter(self):
+    def filter(self, doc_level=True, chunk_level=True):
         """
         какие документы есть смысл использовать:
         * игнорить документы, где есть какие-то несогласованности из-за косячности файлов .ann и .txt
         * coref, re - в документе должно быть более одной сущности.
         примеры, не прошедшие условия, описанные в _is_valid_example, _is_valid_chunk отсеиваются
         """
+        if not (doc_level or chunk_level):
+            return self
         num_examples_init = len(self.data)
         num_chunks_init = 0
         num_chunks_new = 0
         data_new = []
         for x in self.data:
             num_chunks_init += len(x.chunks)
-            if self._is_valid_example(x):
-                x.chunks = [chunk for chunk in x.chunks if self._is_valid_chunk(chunk)]
+            if (doc_level and self._is_valid_example(x)) or (not doc_level):
+                if chunk_level:
+                    x.chunks = [chunk for chunk in x.chunks if self._is_valid_chunk(chunk)]
                 data_new.append(x)
                 num_chunks_new += len(x.chunks)
         self.data = data_new
@@ -77,19 +81,36 @@ class BaseDataset(ABC, LoggerMixin):
                          f"({num_examples_init - num_examples_new} removed).")
         self.logger.info(f"{num_chunks_new} / {num_chunks_init} chunks saved "
                          f"({num_chunks_init - num_chunks_new} removed).")
+        return self
 
     def preprocess(self):
         self.data = [self._preprocess_example(x) for x in tqdm.tqdm(self.data)]
+        return self
 
-    def check(self):
+    def check(self, doc_level=True, chunk_level=True):
         """
         как filter, только вызывается AssertionError, если пример не прошёл условия,
         описанные в _is_valid_example, _is_valid_chunk
         """
+        if not (doc_level or chunk_level):
+            return self
         for x in self.data:
-            assert self._is_valid_example(x)
+            if doc_level:
+                assert self._is_valid_example(x)
             for chunk in x.chunks:
-                assert self._is_valid_chunk(chunk)
+                if chunk_level:
+                    assert self._is_valid_chunk(chunk)
+        return self
+
+    def clear(self):
+        """
+        подготовка примеров для инференса:
+        * удаление сущностей (ner)
+        * удаление отношений (re, cr)
+        """
+        for x in self.data:
+            self._clear_example(x)
+        return self
 
     @abstractmethod
     def _is_valid_example(self, x: Example) -> bool:
@@ -112,6 +133,10 @@ class BaseDataset(ABC, LoggerMixin):
 
         возвращает новый инстанс
         """
+
+    @abstractmethod
+    def _clear_example(self, x: Example) -> None:
+        pass
 
     def _apply_bpe(self, x: Example) -> None:
         """
@@ -177,6 +202,9 @@ class CoreferenceResolutionDataset(BaseDataset):
                 return False
         else:
             return False
+
+    def _clear_example(self, x: Example) -> None:
+        x.arcs = []
 
     @staticmethod
     def _assign_chain_ids(x: Example):

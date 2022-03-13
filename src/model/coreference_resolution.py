@@ -1,6 +1,7 @@
 import copy
 from typing import Dict, List
 from collections import defaultdict
+import tqdm
 
 import numpy as np
 
@@ -202,7 +203,7 @@ class BaseBertForCoreferenceResolution(BaseModeCoreferenceResolution, BaseModelB
             max_tokens_per_batch=self.config["inference"]["max_tokens_per_batch"],
             pieces_level=True
         )
-        for batch in gen:
+        for batch in tqdm.tqdm(gen):
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.TEST)
             re_labels_pred, re_logits_pred = self.sess.run(
                 [self.labels_pred, self.logits_pred],
@@ -416,7 +417,7 @@ class BertForCoreferenceResolutionMentionPair(BaseBertForCoreferenceResolution):
             pieces_level=True
         )
 
-        for batch in gen:
+        for batch in tqdm.tqdm(gen):
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.VALID)
             total_loss_i, d, re_labels_pred, re_logits_pred = self.sess.run(
                 [self.total_loss, self.loss_denominator, self.labels_pred, self.logits_pred],
@@ -677,7 +678,7 @@ class BertForCoreferenceResolutionMentionRanking(BaseBertForCoreferenceResolutio
             max_tokens_per_batch=self.config["inference"]["max_tokens_per_batch"],
             pieces_level=True
         )
-        for batch in gen:
+        for batch in tqdm.tqdm(gen):
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.VALID)
             total_loss_i, d, re_labels_pred, re_logits_pred = self.sess.run(
                 [self.total_loss, self.loss_denominator, self.labels_pred, self.logits_pred],

@@ -19,10 +19,15 @@ def main(cfg: DictConfig):
 
     def get_dataset(data_dir, limit):
         ds = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=tokenizer)
-        ds.load(data_dir=data_dir, limit=limit)
-        ds.filter()  # фильтрация на уровне документов
-        ds.preprocess()  # препроцессинг с разбиением документов на кусочки (с возможным перекрытием)
-        ds.filter()  # фильтрация на уровне кусочков (длина, наличие сущностей в случае re и cr)
+        # 1. подгрузка примеров
+        # 2. фильтрация на уровне документов
+        # 3. препроцессинг с разбиением документов на кусочки (с возможным перекрытием)
+        # 4. фильтрация на уровне кусочков (длина, наличие сущностей в случае re и cr)
+        ds = ds \
+            .load(data_dir=data_dir, limit=limit) \
+            .filter() \
+            .preprocess() \
+            .filter()
         return ds
 
     logger.info("load train data...")
@@ -39,8 +44,13 @@ def main(cfg: DictConfig):
     cfg["model"]["bert"]["pad_token_id"] = tokenizer.vocab["[PAD]"]
     cfg["model"]["bert"]["cls_token_id"] = tokenizer.vocab["[CLS]"]
     cfg["model"]["bert"]["sep_token_id"] = tokenizer.vocab["[SEP]"]
-    cfg["model"]["bert"]["params"] = bert_config
+    cfg["model"]["bert"]["params"] = DictConfig(bert_config)
     cfg["training"]["num_train_samples"] = sum(len(x.chunks) for x in ds_train.data)
+
+    # save config
+    os.makedirs(cfg.output_dir, exist_ok=True)
+    with open(os.path.join(cfg.output_dir, "config.yaml"), "w") as f:
+        f.write(OmegaConf.to_yaml(cfg))
 
     # TODO: подгрузка чекпоинта
     sess = get_session()
