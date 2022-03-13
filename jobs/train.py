@@ -17,19 +17,19 @@ def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     tokenizer = hydra.utils.instantiate(cfg.tokenizer)
 
-    def get_dataset(data_dir, limit, mode):
-        ds = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=tokenizer, mode=mode)
+    def get_dataset(data_dir, limit):
+        ds = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=tokenizer)
         ds.load(data_dir=data_dir, limit=limit)
-        ds.filter()
-        ds.preprocess()
-        ds.check()
+        ds.filter()  # фильтрация на уровне документов
+        ds.preprocess()  # препроцессинг с разбиением документов на кусочки (с возможным перекрытием)
+        ds.filter()  # фильтрация на уровне кусочков (длина, наличие сущностей в случае re и cr)
         return ds
 
     logger.info("load train data...")
-    ds_train = get_dataset(data_dir=cfg.train_data_dir, limit=cfg.num_examples_train, mode=ModeKeys.TRAIN)
+    ds_train = get_dataset(data_dir=cfg.train_data_dir, limit=cfg.num_examples_train)
 
     logger.info("load valid data...")
-    ds_valid = get_dataset(data_dir=cfg.valid_data_dir, limit=cfg.num_examples_valid, mode=ModeKeys.VALID)
+    ds_valid = get_dataset(data_dir=cfg.valid_data_dir, limit=cfg.num_examples_valid)
 
     logger.info("setup model...")
     with open(os.path.join(cfg.model.pretrained_dir, "bert_config.json")) as f:
@@ -53,7 +53,7 @@ def main(cfg: DictConfig):
         examples_train=ds_train.data,
         examples_valid=ds_valid.data,
         model_dir=cfg.output_dir,
-        scope_to_save=None,
+        scope_to_save=cfg.scope_to_save,
         verbose=True,
         verbose_fn=None
     )

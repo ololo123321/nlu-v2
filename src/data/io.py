@@ -34,7 +34,8 @@ def load_collection(
         n: int = None,
         tokens_expression: Union[str, Pattern] = None,
         ignore_bad_examples: bool = False,
-        read_fn: Callable = None
+        read_fn: Callable = None,
+        verbose_fn: Callable = print
 ) -> List[Example]:
     """
     n - сколько примеров распарсить
@@ -44,9 +45,9 @@ def load_collection(
     texts = {x.split('.')[0] for x in files if x.endswith('.txt')}
     answers = {x.split('.')[0] for x in files if x.endswith('.ann')}
     names_to_use = sorted(texts & answers)  # сортировка для детерминированности
-    print(f"num .txt files: {len(texts)}")
-    print(f"num .ann files: {len(answers)}")
-    print(f"num annotated texts: {len(names_to_use)}")
+    verbose_fn(f"num .txt files: {len(texts)}")
+    verbose_fn(f"num .ann files: {len(answers)}")
+    verbose_fn(f"num annotated texts: {len(names_to_use)}")
 
     if (n is not None) and (n > 0):
         names_to_parse = names_to_use[:n]
@@ -73,24 +74,24 @@ def load_collection(
             examples.append(example)
         except (BadLineError, MultiRelationError, NestedNerError, NestedNerSingleEntityTypeError, RegexError) as e:
             err_name = type(e).__name__
-            print(f"[{filename}] known error {err_name} occurred:")
-            print(e)
+            verbose_fn(f"[{filename}] known error {err_name} occurred:")
+            verbose_fn(e)
             if ignore_bad_examples:
-                print("example ignored due to flag ignore_bad_examples set to True")
-                print("=" * 50)
+                verbose_fn("example ignored due to flag ignore_bad_examples set to True")
+                verbose_fn("=" * 50)
                 error_counts[err_name] += 1
             else:
                 raise e
         except EntitySpanError as e:
             err_name = type(e).__name__
-            print(f"[{filename}] known error {err_name} occurred:")
-            print(e)
-            print("trying another readers...")
+            verbose_fn(f"[{filename}] known error {err_name} occurred:")
+            verbose_fn(e)
+            verbose_fn("trying another readers...")
             flag = False
             for read_fn_alt in [read_file_v1, read_file_v2, read_file_v3]:
-                print("reader:", read_fn_alt.__name__)
+                verbose_fn(f"reader: {read_fn_alt.__name__}")
                 if read_fn_alt.__name__ == read_fn.__name__:
-                    print("ignored due to the same as provided in args")
+                    verbose_fn("ignored due to the same as provided in args")
                     continue
                 try:
                     example = parse_example(
@@ -103,17 +104,16 @@ def load_collection(
                     flag = True
                     break
                 except EntitySpanError as e:
-                    print(e)
+                    verbose_fn(e)
             if flag:
-                print("success :)")
+                verbose_fn("success :)")
             else:
-                print("fail :(")
-
+                verbose_fn("fail :(")
         except Exception as e:
-            print(f"[{filename}] unknown error {type(e).__name__} occurred:")
+            verbose_fn(f"[{filename}] unknown error {type(e).__name__} occurred:")
             raise e
-    print(f"successfully parsed {len(examples)} examples from {len(names_to_parse)} files.")
-    print(f"error counts: {error_counts}")
+    verbose_fn(f"successfully parsed {len(examples)} examples from {len(names_to_parse)} files.")
+    verbose_fn(f"error counts: {error_counts}")
     return examples
 
 

@@ -11,7 +11,7 @@ from bert.modeling import BertModel, BertConfig
 from bert.optimization import create_optimizer
 
 from src.data.base import Example
-from src.utils import train_test_split, get_filtered_by_length_chunks, log, LoggerMixin, ModeKeys, tf
+from src.utils import train_test_split, log, LoggerMixin, ModeKeys, tf
 from src.model.layers import StackedBiRNN
 
 
@@ -223,12 +223,7 @@ class BaseModel(ABC, LoggerMixin):
         # *3) аккумуляция градиентов
         # TODO: реализовать последнюю (уже реализовывал, когда решал dependency parsing, нужно скопипастить сюда)
         train_op = getattr(self, train_op_name)
-
-        maxlen = self.config["training"]["maxlen"]
-        chunks_train = get_filtered_by_length_chunks(
-            examples=examples_train, maxlen=maxlen, pieces_level=self._is_bpe_level
-        )
-
+        chunks_train = [chunk for x in examples_train for chunk in x.chunks]
         batch_size = self.config["training"]["batch_size"]
         num_epoch_steps = math.ceil(len(chunks_train) / batch_size)
         best_score = -1
@@ -389,10 +384,8 @@ class BaseModel(ABC, LoggerMixin):
 
     @classmethod
     def load(cls, sess: tf.Session, model_dir: str, scope_to_load: str = None, mode: str = ModeKeys.TEST):
-
         with open(os.path.join(model_dir, "config.json")) as f:
             config = json.load(f)
-
         model = cls(sess=sess, config=config)
         model.build(mode=mode)
         model.restore_weights(model_dir=model_dir, scope=scope_to_load)

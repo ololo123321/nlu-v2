@@ -48,8 +48,7 @@ training:
   num_epochs: 100
   batch_size: 16
   max_epochs_wo_improvement: 10
-  num_train_samples: ???
-  maxlen: 256
+  num_train_samples: ???  # need to get learning rate schedule
 
 validation:
   window: ${dataset.window}
@@ -59,8 +58,15 @@ inference:
   window: ${dataset.window}
   max_chunk_length: ${dataset.max_chunk_length}
 
+# for training
 train_data_dir: ???
 valid_data_dir: ???
 output_dir: ???
 num_examples_train: -1
 num_examples_valid: -1
+scope_to_save: null
+
+# for inference
+test_data_dir: ???
+model_dir: ???
+scope_to_load: ${scope_to_save}

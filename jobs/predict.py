@@ -19,13 +19,16 @@ def main(cfg: DictConfig):
     tokenizer = hydra.utils.instantiate(cfg.tokenizer)
 
     logger.info("load data...")
-    ds = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=tokenizer, mode=ModeKeys.TEST)
+    ds = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=tokenizer)
     ds.load(data_dir=cfg.test_data_dir, limit=cfg.num_examples_test)  # TODO: в конфиг
     # TODO: прояснить логику: с одной стороны мы должны обработать каждый входной файл,
-    #  с другой - не каждый файл может быть возможно засунуть в модель
-    #  (например, пример без сущностей не засунуть в cr и re)
-    ds.filter()
+    #  с другой - не каждый файл возможно засунуть в модель
+    #  (например, пример без сущностей не засунуть в cr и re). Поэтому, наверное, здесь лучше
+    #  делать check, чтоб вылетала ошибка. С другой стороны можно как-то сделать так, чтобы документ
+    #  просто копировался в выход, не проходя через модель
+    ds.check()
     ds.preprocess()
+    # TODO: здесь фильтровать только куски, но не документы
     ds.check()
 
     logger.info("setup model...")
@@ -38,12 +41,14 @@ def main(cfg: DictConfig):
     cfg["model"]["bert"]["sep_token_id"] = tokenizer.vocab["[SEP]"]
     cfg["model"]["bert"]["params"] = bert_config
 
-    # TODO: подгрузка чекпоинта
     sess = get_session()
     model_cls = hydra.utils.instantiate(cfg.model_cls)
-    model = model_cls(sess=sess, config=cfg)
-    model.build(mode=ModeKeys.TRAIN)
-    model.reset_weights(bert_dir=cfg.model.pretrained_dir)
+    model = model_cls.load(
+        sess=sess,
+        model_dir=cfg.model_dir,
+        scope_to_load=cfg.scope_to_load,
+        mode=ModeKeys.TEST
+    )
 
     model.predict(ds.data)  # TODO: добавить специфичные для модели kwargs
 

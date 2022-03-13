@@ -106,6 +106,13 @@ def check_split(chunk: Example, window: int, fixed_sent_pointers: bool = False):
                     assert t.label[0] == "I", f"[{chunk.id}] expected split " \
                         f"between sentences {id_sent_curr - 1} and {id_sent_curr}"
 
+    entity_ids = {e.id for e in chunk.entities}
+    for arc in chunk.arcs:
+        assert arc.head in entity_ids, \
+            f'[{chunk.id}] entity {arc.head} (head of arc {arc.id}) is not in chunk\'s entities'
+        assert arc.dep in entity_ids, \
+            f'[{chunk.id}] entity {arc.head} (dep of arc {arc.id}) is not in chunk\'s entities'
+
 
 def _remove_spaces(s: str) -> str:
     s = s.replace(" ", "")
