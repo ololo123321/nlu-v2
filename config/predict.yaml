@@ -1,3 +1,4 @@
+# см. описание в predict.py
 test_data_dir: ???
 model_dir: ???
 output_dir: ???

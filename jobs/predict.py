@@ -13,10 +13,23 @@ logger = logging.getLogger("predict")
 
 
 @hydra.main(config_path="../config", config_name="predict")
-def main(cfg: DictConfig):
+def main(overrides: DictConfig):
+    # Некоторые параметры конфига модели зависят от выборки:
+    # * число лейблов в задаче ner, re
+    # * маппинги index -> label в тех же задачах
+
+    # Также некоторе параметры архитектуры могут быть переопределены в командной строке при обучении:
+    # * число и размерность новых слоёв
+    # * дропауты (на инференсе нужно знать, какой дропаут был при обучении)
+
+    # Для того, чтобы гарантировать отсутствие конфлитктов между обучением и инференсом решил сделать следующее:
+    # * конфиг обучения сохранять в папку модели в файле config.yaml
+    # * при инференсе подгружать этот конфиг, и обновлять в нём только специфичные для инференса поля,
+    #   представленные в файле predict.yaml
+
     # load config
-    cfg_base = OmegaConf.load(os.path.join(cfg.model_dir, "config.yaml"))
-    cfg = OmegaConf.merge(cfg_base, cfg)
+    cfg = OmegaConf.load(os.path.join(overrides.model_dir, "config.yaml"))
+    cfg = OmegaConf.merge(cfg, overrides)
 
     print(OmegaConf.to_yaml(cfg))
     tokenizer = hydra.utils.instantiate(cfg.tokenizer)
@@ -30,6 +43,7 @@ def main(cfg: DictConfig):
     # 4. препроцессинг
     # 5. фильтрация на уровне кусков. Фильтрации на уровне документов не будет,
     #    потому что в случае косяков на уровне документов вылезла бы AssertionError на шаге 3.
+    #    Но всё равно лучше явно написать doc_level=False, чтоб было понятней.
     ds = ds \
         .load(data_dir=cfg.test_data_dir, limit=cfg.num_examples_test) \
         .clear() \
