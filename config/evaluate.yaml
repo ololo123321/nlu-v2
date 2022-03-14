@@ -1,7 +1,9 @@
 defaults:
   - _self_
   - hydra: hydra_default
-  - evaluator: coreference_resolution
+
+evaluator:
+  _target_: ???
 
 gold_data_dir: ???
 pred_data_dir: ???

@@ -39,5 +39,12 @@ def main(cfg: DictConfig):
     logger.info(metrics)
 
     if cfg.output_path is not None:
+        logger.info(f"saving metrics to {cfg.output_path}")
         with open(cfg.output_path, "w") as f:
             json.dump(metrics, f)
+    else:
+        logger.info("saving ignored due to output_path is not provided")
+
+
+if __name__ == "__main__":
+    main()

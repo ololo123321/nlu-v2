@@ -152,7 +152,7 @@ class CoreferenceResolutionDataset(BaseDataset):
         # remove redundant entities and edged
         x = simplify(x)
 
-        self._assign_chain_ids(x)
+        assign_chain_ids(x)
 
         # split documents in chunks
         # tokenize chunks, remove bad chunks
@@ -206,24 +206,24 @@ class CoreferenceResolutionDataset(BaseDataset):
     def _clear_example(self, x: Example) -> None:
         x.arcs = []
 
-    @staticmethod
-    def _assign_chain_ids(x: Example):
-        """
-        x - документ, а не кусок!
-        """
-        id2entity = {}
-        g = {}
-        for entity in x.entities:
-            g[entity.id] = set()
-            id2entity[entity.id] = entity
-        for arc in x.arcs:
-            g[arc.head].add(arc.dep)
 
-        components = get_connected_components(g)
+def assign_chain_ids(x: Example):
+    """
+    x - документ, а не кусок!
+    """
+    id2entity = {}
+    g = {}
+    for entity in x.entities:
+        g[entity.id] = set()
+        id2entity[entity.id] = entity
+    for arc in x.arcs:
+        g[arc.head].add(arc.dep)
 
-        for id_chain, comp in enumerate(components):
-            for id_entity in comp:
-                id2entity[id_entity].id_chain = id_chain
+    components = get_connected_components(g)
+
+    for id_chain, comp in enumerate(components):
+        for id_entity in comp:
+            id2entity[id_entity].id_chain = id_chain
 
 #
 # for chunk in chunks:
