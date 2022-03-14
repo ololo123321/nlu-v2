@@ -1,0 +1,8 @@
+defaults:
+  - _self_
+  - hydra: hydra_default
+  - evaluator: coreference_resolution
+
+gold_data_dir: ???
+pred_data_dir: ???
+output_path: null

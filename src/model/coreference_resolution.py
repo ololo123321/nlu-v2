@@ -521,6 +521,7 @@ class BertForCoreferenceResolutionMentionPair(BaseBertForCoreferenceResolution):
         # print("total loss:", total_loss)
         # print("denominator:", loss_denominator)
 
+        # TODO: копипаста из src.evaluators.CoreferenceResolutionEvaluator
         to_conll(examples=examples, path=self.config["validation"]["path_true"])
         to_conll(examples=examples_valid_copy, path=self.config["validation"]["path_pred"])
 
