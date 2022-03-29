@@ -19,6 +19,11 @@ from src.metrics import get_coreferense_resolution_metrics
 from src.utils import batches_gen, get_connected_components, parse_conll_metrics, log, classification_report_to_string, tf
 
 
+class DropoutPolicyKeys:
+    SINGLE_MASK = 0  # one mask for each iteration
+    DIFFERENT_MASK = 1  # different mask on each iteration
+
+
 # TODO: span size features
 # TODO: distance features
 # TODO: s(i, eps) = 0
@@ -140,21 +145,21 @@ class BaseBertForCoreferenceResolution(BaseModeCoreferenceResolution, BaseModelB
             return g_dep, logits
 
         # n = 1 - baseline
-        # n = 2 - like in paper
+        # n >= 2 - like in paper
         order = self.config["model"]["coref"]["hoi"]["order"]
 
-        if order > 1:
+        if order >= 2:
             # 0 - one mask for each iteration
             # 1 - different mask on each iteration
             dropout_policy = self.config["model"]["coref"]["hoi"]["w_dropout_policy"]
-            if dropout_policy == 0:
+            if dropout_policy == DropoutPolicyKeys.SINGLE_MASK:
                 w = self.w_dropout(self.w, training=self.training_ph)
-            elif dropout_policy == 1:
+            elif dropout_policy == DropoutPolicyKeys.DIFFERENT_MASK:
                 w = self.w
             else:
                 raise NotImplementedError
 
-            for i in range(order - 1):
+            for _ in range(order - 1):
                 x_dep, logits = get_logits(self.entity_pairs_enc, x)
 
                 # expected antecedent representation
@@ -162,7 +167,7 @@ class BaseBertForCoreferenceResolution(BaseModeCoreferenceResolution, BaseModelB
                 a = tf.matmul(prob, x_dep)  # [batch_size, num_entities, bert_dim]
 
                 # update
-                if dropout_policy == 1:
+                if dropout_policy == DropoutPolicyKeys.DIFFERENT_MASK:
                     w = self.w_dropout(self.w, training=self.training_ph)
                 f = tf.nn.sigmoid(tf.matmul(tf.concat([x, a], axis=-1), w))
                 x = f * x + (1.0 - f) * a

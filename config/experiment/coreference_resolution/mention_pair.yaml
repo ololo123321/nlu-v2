@@ -3,4 +3,4 @@ defaults:
   - /experiment/coreference_resolution/base@_here_
 
 model_cls:
-  path: src.model.coreference_resolution.BertForCoreferenceResolutionMentionRanking
+  path: src.model.coreference_resolution.BertForCoreferenceResolutionMentionPair

@@ -8,7 +8,11 @@ from abc import ABC, abstractmethod
 import numpy as np
 import tqdm
 from bert.modeling import BertModel, BertConfig
-from bert.optimization import create_optimizer
+try:
+    from bert.optimization import create_optimizer
+except:
+    def create_optimizer(*args, **kwargs):
+        pass
 
 from src.data.base import Example
 from src.utils import train_test_split, log, LoggerMixin, ModeKeys, tf
