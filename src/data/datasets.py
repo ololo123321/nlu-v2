@@ -1,5 +1,5 @@
 import re
-from typing import List, Callable, Pattern, Union
+from typing import List, Callable, Pattern, Union, Dict
 from abc import ABC, abstractmethod
 import tqdm
 
@@ -115,6 +115,12 @@ class BaseDataset(ABC, LoggerMixin):
         for x in self.data:
             self._clear_example(x)
         return self
+
+    def fit(self) -> Dict:
+        """
+        получение маппинга label -> int
+        """
+        return {}
 
     @abstractmethod
     def _is_valid_example(self, x: Example) -> bool:
@@ -236,18 +242,45 @@ class CoreferenceResolutionDataset(BaseDataset):
 class DependencyParsingDataset(BaseDataset):
     def load(self, data_dir: str, limit: int = None, read_fn: Callable = read_file_v3):
         self.data = from_conllu(path=data_dir, warn=False)
+        return self
 
+    def fit(self) -> Dict:
+        labels = set()
+        for x in self.data:
+            for chunk in x.chunks:
+                for t in chunk.tokens:
+                    labels.add(t.rel)
+        res = {
+            "rel_enc": {x: i for i, x in enumerate(sorted(labels))}
+        }
+        return res
+
+    # TODO
     def _is_valid_example(self, x: Example) -> bool:
         return True
 
+    # TODO
     def _is_valid_chunk(self, x: Example) -> bool:
         return True
 
     def _preprocess_example(self, x: Example) -> Example:
-        pass
+        x = simplify(x)
+        x.chunks = split_example_v2(
+            x,
+            window=self.window,
+            stride=self.stride,
+            lang=self.language,
+            tokens_expression=self.tokens_expression,
+            fix_pointers=self.fix_sent_pointers
+        )
+        for chunk in x.chunks:
+            self._apply_bpe(chunk)
+        return x
 
     def _clear_example(self, x: Example) -> None:
-        pass
+        x.arcs = []  # TODO: излишне
+        for t in x.tokens:
+            t.reset()
 
 #
 # for chunk in chunks:

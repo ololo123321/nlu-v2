@@ -32,6 +32,11 @@ def main(cfg: DictConfig):
 
     logger.info("load train data...")
     ds_train = get_dataset(data_dir=cfg.train_data_dir, limit=cfg.num_examples_train)
+    encodings = ds_train.fit()
+
+    if encodings:
+        with open(os.path.join(cfg.output_dir, "encodings.json"), "w") as f:
+            json.dump(encodings, f, indent=4, ensure_ascii=False)
 
     logger.info("load valid data...")
     ds_valid = get_dataset(data_dir=cfg.valid_data_dir, limit=cfg.num_examples_valid)
@@ -55,7 +60,7 @@ def main(cfg: DictConfig):
     # TODO: подгрузка чекпоинта
     sess = get_session()
     model_cls = hydra.utils.instantiate(cfg.model_cls)
-    model = model_cls(sess=sess, config=cfg)
+    model = model_cls(sess=sess, config=cfg, **encodings)
     model.build(mode=ModeKeys.TRAIN)
     model.reset_weights(bert_dir=cfg.model.pretrained_dir)
 

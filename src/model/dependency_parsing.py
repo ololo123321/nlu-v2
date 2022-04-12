@@ -28,6 +28,9 @@ class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
         with tf.variable_scope("type_encoder"):
             self.type_enc = GraphEncoder(**self.config["model"]["parser"]["biaffine_type"])
 
+    def verbose_fn(self, metrics: Dict) -> None:
+        self.logger.info({k: round(v, 4) for k, v in metrics.items()})
+
     def _build_dependency_parser_fn(self, bert_out: tf.Tensor):
         bert_out = self.bert_dropout(bert_out, training=self.training_ph)
 
@@ -231,8 +234,13 @@ class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
     @log
     def evaluate(self, examples: List[Example], **kwargs) -> Dict:
         """chunks always sentence-level"""
-        maxlen = self.config["inference"]["maxlen"]
-        chunks = get_filtered_by_length_chunks(examples=examples, maxlen=maxlen, pieces_level=self._is_bpe_level)
+        # maxlen = self.config["inference"]["maxlen"]
+        # chunks = get_filtered_by_length_chunks(examples=examples, maxlen=maxlen, pieces_level=self._is_bpe_level)
+        chunks = []
+        for x in examples:
+            for chunk in x.chunks:
+                # TODO: мб здесь дедать какую-то проверку на валидность примера
+                chunks.append(chunk)
 
         num_tokens_total = 0
         num_heads_correct = 0
@@ -265,9 +273,10 @@ class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
                     head_pred = head_ids[j + 1]
                     if head_pred == t.id_head + 1:
                         num_heads_correct += 1
-                        id_label_pred = type_labels_pred[i, j, head_pred]
-                        if id_label_pred == self.rel_enc[t.rel]:
-                            num_heads_labels_correct += 1
+                        if t.rel in self.rel_enc.keys():
+                            id_label_pred = type_labels_pred[i, j, head_pred]
+                            if id_label_pred == self.rel_enc[t.rel]:
+                                num_heads_labels_correct += 1
 
         # loss
         loss_arc = total_loss_arc / num_tokens_total
