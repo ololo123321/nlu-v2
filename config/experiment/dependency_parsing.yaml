@@ -1,0 +1,28 @@
+model_cls:
+  path: ???
+
+model:
+  parser:
+    use_birnn: false
+    rnn:
+      num_layers: 1
+      cell_dim: 256
+      dropout: 0.5
+      recurrent_dropout: 0.0
+    biaffine_arc:
+      num_mlp_layers: 1
+      activation: relu
+      head_dim: 1024
+      dep_dim: 1024
+      dropout: 0.33
+      num_labels: 1
+    biaffine_type:
+      num_mlp_layers: 1
+      activation: relu
+      head_dim: 256
+      dep_dim: 256
+      dropout: 0.33
+      num_labels: null  # заполняется в train.py
+
+dataset:
+  _target_: src.data.datasets.DependencyParsingDataset

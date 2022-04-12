@@ -12,6 +12,11 @@ from src.model.utils import get_session
 logger = logging.getLogger("train")
 
 
+def maybe_update_config(cfg, encodings):
+    if "parser" in cfg["model"]:
+        cfg["model"]["parser"]["biaffine_type"]["num_labels"] = len(encodings["rel_enc"])
+
+
 @hydra.main(config_path="../config", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
@@ -51,6 +56,8 @@ def main(cfg: DictConfig):
     cfg["model"]["bert"]["sep_token_id"] = tokenizer.vocab["[SEP]"]
     cfg["model"]["bert"]["params"] = DictConfig(bert_config)
     cfg["training"]["num_train_samples"] = sum(len(x.chunks) for x in ds_train.data)
+
+    maybe_update_config(cfg, encodings)
 
     # save config
     os.makedirs(cfg.output_dir, exist_ok=True)
