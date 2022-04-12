@@ -6,7 +6,7 @@ from src.model.base import BaseModeDependencyParsing, BaseModelBert, ModeKeys
 from src.model.layers import GraphEncoder, GraphEncoderInputs
 from src.model.utils import get_additive_mask
 from src.data.base import Example
-from src.utils import batches_gen, mst, get_filtered_by_length_chunks, log, tf
+from src.utils import batches_gen, mst, log, tf
 
 
 class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
@@ -199,19 +199,20 @@ class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
     @log
     def predict(self, examples: List[Example], **kwargs) -> None:
         """chunks always sentence-level"""
-        maxlen = self.config["inference"]["maxlen"]
-        chunks = get_filtered_by_length_chunks(examples=examples, maxlen=maxlen, pieces_level=self._is_bpe_level)
-
-        for chunk in chunks:
-            for t in chunk.tokens:
-                assert t.id_head is None
-                assert t.rel is None
+        chunks = []
+        for x in examples:
+            for chunk in x.chunks:
+                for t in chunk.tokens:
+                    assert t.id_head is None
+                    assert t.rel is None
+                chunks.append(chunk)
 
         max_tokens_per_batch = self.config["inference"]["max_tokens_per_batch"]
         gen = batches_gen(examples=chunks, max_tokens_per_batch=max_tokens_per_batch, pieces_level=self._is_bpe_level)
         for batch in gen:
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.TEST)
             s_arc, type_labels_pred, = self.sess.run([self.s_arc, self.type_labels_pred], feed_dict=feed_dict)
+
             for i, x in enumerate(batch):
                 num_tokens_i = len(x.tokens)
                 s_arc_i = s_arc[i, :num_tokens_i, :num_tokens_i + 1]  # [T, T + 1]

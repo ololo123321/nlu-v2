@@ -5,7 +5,7 @@ import tqdm
 
 from bert.tokenization import FullTokenizer
 
-from src.data.io import load_collection, simplify, read_file_v3
+from src.data.io import load_collection, simplify, read_file_v3, from_conllu
 from src.data.check import check_tokens_entities_alignment, check_arcs, check_split
 from src.data.preprocessing import split_example_v2, enumerate_entities, get_connected_components
 from src.data.base import Languages, Example
@@ -58,6 +58,7 @@ class BaseDataset(ABC, LoggerMixin):
     def filter(self, doc_level=True, chunk_level=True):
         """
         какие документы есть смысл использовать:
+        * число модельных токенов <= max_chunk_length
         * игнорить документы, где есть какие-то несогласованности из-за косячности файлов .ann и .txt
         * coref, re - в документе должно быть более одной сущности.
         примеры, не прошедшие условия, описанные в _is_valid_example, _is_valid_chunk отсеиваются
@@ -72,7 +73,9 @@ class BaseDataset(ABC, LoggerMixin):
             num_chunks_init += len(x.chunks)
             if (doc_level and self._is_valid_example(x)) or (not doc_level):
                 if chunk_level:
-                    x.chunks = [chunk for chunk in x.chunks if self._is_valid_chunk(chunk)]
+                    x.chunks = [
+                        chunk for chunk in x.chunks if self._is_valid_length(chunk) and self._is_valid_chunk(chunk)
+                    ]
                 data_new.append(x)
                 num_chunks_new += len(x.chunks)
         self.data = data_new
@@ -99,6 +102,7 @@ class BaseDataset(ABC, LoggerMixin):
                 assert self._is_valid_example(x)
             for chunk in x.chunks:
                 if chunk_level:
+                    assert self._is_valid_length(chunk)
                     assert self._is_valid_chunk(chunk)
         return self
 
@@ -145,6 +149,28 @@ class BaseDataset(ABC, LoggerMixin):
         for t in x.tokens:
             t.pieces = self.tokenizer.tokenize(t.text)
             t.token_ids = self.tokenizer.convert_tokens_to_ids(t.pieces)
+
+    def _is_valid_length(self, x: Example) -> bool:
+        return sum(len(t.pieces) for t in x.tokens) <= self.max_chunk_length
+
+
+def assign_chain_ids(x: Example):
+    """
+    x - документ, а не кусок!
+    """
+    id2entity = {}
+    g = {}
+    for entity in x.entities:
+        g[entity.id] = set()
+        id2entity[entity.id] = entity
+    for arc in x.arcs:
+        g[arc.head].add(arc.dep)
+
+    components = get_connected_components(g)
+
+    for id_chain, comp in enumerate(components):
+        for id_entity in comp:
+            id2entity[id_entity].id_chain = id_chain
 
 
 class CoreferenceResolutionDataset(BaseDataset):
@@ -207,23 +233,21 @@ class CoreferenceResolutionDataset(BaseDataset):
         x.arcs = []
 
 
-def assign_chain_ids(x: Example):
-    """
-    x - документ, а не кусок!
-    """
-    id2entity = {}
-    g = {}
-    for entity in x.entities:
-        g[entity.id] = set()
-        id2entity[entity.id] = entity
-    for arc in x.arcs:
-        g[arc.head].add(arc.dep)
+class DependencyParsingDataset(BaseDataset):
+    def load(self, data_dir: str, limit: int = None, read_fn: Callable = read_file_v3):
+        self.data = from_conllu(path=data_dir, warn=False)
 
-    components = get_connected_components(g)
+    def _is_valid_example(self, x: Example) -> bool:
+        return True
 
-    for id_chain, comp in enumerate(components):
-        for id_entity in comp:
-            id2entity[id_entity].id_chain = id_chain
+    def _is_valid_chunk(self, x: Example) -> bool:
+        return True
+
+    def _preprocess_example(self, x: Example) -> Example:
+        pass
+
+    def _clear_example(self, x: Example) -> None:
+        pass
 
 #
 # for chunk in chunks:

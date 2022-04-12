@@ -28,7 +28,7 @@ class MLP(tf.keras.layers.Layer):
         self.dropout_layers = []
         for h, a, d in zip(hidden_dims, activations, dropouts):
             self.dense_layers.append(tf.keras.layers.Dense(h, activation=a))
-            if d is None or dropout == 0.0:
+            if (d is None) or (d == 0.0):
                 self.dropout_layers.append(None)
             else:
                 self.dropout_layers.append(tf.keras.layers.Dropout(d))
@@ -94,11 +94,11 @@ class BiLinear(tf.keras.layers.Layer):
         x = tf.transpose(x, [0, 2, 3, 1])  # [N, T_head, T_dep, output_dim]
 
         head_u = tf.matmul(head, self.u)  # [N, T_head, output_dim]
-        x += tf.expand_dims(head_u, 2)  # [N, T_head, T_dep, output_dim]
+        x += tf.expand_dims(head_u, 2)  # [N, T_head, 1, output_dim]
 
         if self.use_dep_prior:
             dep_v = tf.matmul(dep, self.v)  # [N, T_dep, output_dim]
-            x += tf.expand_dims(dep_v, 1)  # [N, T_head, T_dep, output_dim]
+            x += tf.expand_dims(dep_v, 1)  # [N, 1, T_dep, output_dim]
 
         x += self.b[None, None, None, :]  # [N, T_head, T_dep, output_dim]
         return x
