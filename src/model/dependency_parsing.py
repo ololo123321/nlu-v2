@@ -1,4 +1,5 @@
 from typing import Dict, List
+import tqdm
 
 import numpy as np
 
@@ -211,6 +212,7 @@ class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
                 chunks.append(chunk)
 
         max_tokens_per_batch = self.config["inference"]["max_tokens_per_batch"]
+        pbar = tqdm.tqdm(total=len(chunks))
         gen = batches_gen(examples=chunks, max_tokens_per_batch=max_tokens_per_batch, pieces_level=self._is_bpe_level)
         for batch in gen:
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.TEST)
@@ -230,6 +232,8 @@ class BertForDependencyParsing(BaseModeDependencyParsing, BaseModelBert):
                     id_label_pred = type_labels_pred[i, j, head_pred]
                     label_pred = self.inv_rel_enc[id_label_pred]
                     t.rel = label_pred
+            pbar.update(len(batch))
+        pbar.close()
 
     @log
     def evaluate(self, examples: List[Example], **kwargs) -> Dict:

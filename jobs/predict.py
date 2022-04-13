@@ -1,13 +1,13 @@
 import os
 import sys
 import logging
+import json
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.model.base import ModeKeys
 from src.model.utils import get_session
-from src.data.io import to_brat_v2
 
 logger = logging.getLogger("predict")
 
@@ -54,10 +54,19 @@ def main(overrides: DictConfig):
         .preprocess() \
         .filter(doc_level=False)
 
+    logger.info("loading encodings")
+    encodings_path = os.path.join(cfg.model_dir, "encodings.json")
+    if os.path.exists(encodings_path):
+        with open(encodings_path) as f:
+            encodings = json.load(f)
+    else:
+        encodings = {}
+    logger.info(f"loaded encodings: {list(encodings.keys())}")
+
     logger.info("setup model...")
     sess = get_session()
     model_cls = hydra.utils.instantiate(cfg.model_cls)
-    model = model_cls(sess=sess, config=cfg)
+    model = model_cls(sess=sess, config=cfg, **encodings)
     model.build(mode=ModeKeys.TEST)
     model.restore_weights(model_dir=cfg.model_dir, scope=None)  # TODO: прояснить логику со scope
 

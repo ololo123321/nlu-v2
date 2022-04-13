@@ -293,8 +293,11 @@ class DependencyParsingDataset(BaseDataset):
         return x
 
     def _clear_example(self, x: Example) -> None:
-        for t in x.tokens:
-            t.reset()
+        # for t in x.tokens:
+        #     t.reset()
+        for chunk in x.chunks:
+            for t in chunk.tokens:
+                t.reset()
 
 #
 # for chunk in chunks:

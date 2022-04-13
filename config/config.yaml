@@ -57,19 +57,24 @@ inference:
   window: ${dataset.window}
   max_chunk_length: ${dataset.max_chunk_length}
 
+evaluator:
+  _target_: ???
+
 # for training
 train_data_path: ???
 valid_data_path: ???
 num_examples_train: -1
 num_examples_valid: -1
 scope_to_save: null
+output_dir: ???
 
 # for inference
 test_data_path: ???
-predictions_path: ???
+predictions_path: ???  # and for evaluation
 model_dir: ???
 scope_to_load: ${scope_to_save}
 num_examples_test: -1
 
-# for all modes
-output_dir: ???
+# for evaluation
+gold_data_path: ???
+metrics_path: null

@@ -37,3 +37,7 @@ validation:
   path_true: /tmp/gold.conll
   path_pred: /tmp/pred.conll
   scorer_path: ???
+
+evaluator:
+  _target_: src.evaluators.CoreferenceResolutionEvaluator
+  scorer_path: /path/to/scorer.pl

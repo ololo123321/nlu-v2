@@ -90,7 +90,8 @@ class DependencyParsingEvaluator(BaseEvaluator):
                 assert len(chunk_pred.tokens) == len(chunk_gold.tokens), \
                     f'{len(chunk_pred.tokens)} != {len(chunk_gold.tokens)}'
                 for t_pred, t_gold in zip(chunk_pred.tokens, chunk_gold.tokens):
-                    assert t_pred.text == t_gold.gold.text, f'{t_pred.text} != {t_gold.text}'
+                    assert t_pred.text == t_gold.text, f'{t_pred.text} != {t_gold.text}'
+                    metrics["support"] += 1
                     if t_pred.id_head == t_gold.id_head:
                         metrics["uas"] += 1
                         if t_pred.rel == t_gold.rel:

@@ -1029,7 +1029,8 @@ def to_conllu(examples, path):
                     features = ["_"] * 10
                     features[0] = str(i + 1)
                     features[1] = t.text
-                    features[3] = t.pos
+                    if t.pos is not None:
+                        features[3] = t.pos
                     features[6] = str(t.id_head + 1)
                     features[7] = t.rel
                     f.write("\t".join(features) + "\n")

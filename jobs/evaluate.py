@@ -6,38 +6,20 @@ import json
 from omegaconf import DictConfig, OmegaConf
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.data.io import load_collection, read_file_v3
 
 logger = logging.getLogger("evaluate")
 
 
-@hydra.main(config_path="../config", config_name="evaluate")
+@hydra.main(config_path="../config", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
     logger.info("load data...")
-    # examples_gold = load_collection(
-    #     data_dir=cfg.gold_data_path,
-    #     n=None,
-    #     tokens_expression=None,
-    #     ignore_bad_examples=False,
-    #     read_fn=read_file_v3,  # TODO: конфигурировать
-    #     verbose_fn=logger.info
-    # )
-    # examples_pred = load_collection(
-    #     data_dir=cfg.pred_data_dir,
-    #     n=None,
-    #     tokens_expression=None,
-    #     ignore_bad_examples=False,
-    #     read_fn=read_file_v3,
-    #     verbose_fn=logger.info
-    # )
-    # assert len(examples_gold) == len(examples_pred)
     ds_gold = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=None)
-    ds_gold = ds_gold.load(cfg.test_data_path, limit=cfg.num_examples_test)
+    ds_gold = ds_gold.load(cfg.gold_data_path)
 
     ds_pred = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=None)
-    ds_pred = ds_pred.load(cfg.test_data_path, limit=cfg.num_examples_test)
+    ds_pred = ds_pred.load(cfg.predictions_path)
 
     assert len(ds_gold.data) == len(ds_pred.data)
 

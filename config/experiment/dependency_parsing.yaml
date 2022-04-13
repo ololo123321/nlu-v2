@@ -29,3 +29,6 @@ model:
 
 dataset:
   _target_: src.data.datasets.DependencyParsingDataset
+
+evaluator:
+  _target_: src.evaluators.DependencyParsingEvaluator
