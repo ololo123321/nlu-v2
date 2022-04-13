@@ -11,7 +11,6 @@ class BaseEvaluator(LoggerMixin):
     def __init__(self, logger_parent_name: str = None):
         super().__init__(logger_parent_name=logger_parent_name)
 
-    @log
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
         """
         принимает на вход истинные примеры и предикты, выдаёт словарь с метриками
@@ -56,3 +55,12 @@ class CoreferenceResolutionEvaluator(BaseEvaluator):
         os.remove(path_gold)
         os.remove(path_pred)
         return metrics
+
+
+class DependencyParsingEvaluator(BaseEvaluator):
+    def __init__(self, logger_parent_name: str = None):
+        super().__init__(logger_parent_name=logger_parent_name)
+
+    @log
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
+        pass

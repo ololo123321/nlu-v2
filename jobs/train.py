@@ -12,9 +12,10 @@ from src.model.utils import get_session
 logger = logging.getLogger("train")
 
 
-def maybe_update_config(cfg, encodings):
+def maybe_update_config(cfg, encodings, tokenizer):
     if "parser" in cfg["model"]:
         cfg["model"]["parser"]["biaffine_type"]["num_labels"] = len(encodings["rel_enc"])
+        cfg["model"]["bert"]["root_token_id"] = tokenizer.vocab["[unused1]"]
 
 
 @hydra.main(config_path="../config", config_name="config")
@@ -22,21 +23,21 @@ def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     tokenizer = hydra.utils.instantiate(cfg.tokenizer)
 
-    def get_dataset(data_dir, limit):
+    def get_dataset(path, limit):
         ds = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=tokenizer)
         # 1. подгрузка примеров
         # 2. фильтрация на уровне документов
         # 3. препроцессинг с разбиением документов на кусочки (с возможным перекрытием)
         # 4. фильтрация на уровне кусочков (длина, наличие сущностей в случае re и cr)
         ds = ds \
-            .load(data_dir=data_dir, limit=limit) \
+            .load(path, limit=limit) \
             .filter() \
             .preprocess() \
             .filter()
         return ds
 
     logger.info("load train data...")
-    ds_train = get_dataset(data_dir=cfg.train_data_dir, limit=cfg.num_examples_train)
+    ds_train = get_dataset(cfg.train_data_path, limit=cfg.num_examples_train)
     encodings = ds_train.fit()
 
     if encodings:
@@ -44,7 +45,7 @@ def main(cfg: DictConfig):
             json.dump(encodings, f, indent=4, ensure_ascii=False)
 
     logger.info("load valid data...")
-    ds_valid = get_dataset(data_dir=cfg.valid_data_dir, limit=cfg.num_examples_valid)
+    ds_valid = get_dataset(cfg.valid_data_path, limit=cfg.num_examples_valid)
 
     logger.info("setup model...")
     with open(os.path.join(cfg.model.pretrained_dir, "bert_config.json")) as f:
@@ -57,7 +58,7 @@ def main(cfg: DictConfig):
     cfg["model"]["bert"]["params"] = DictConfig(bert_config)
     cfg["training"]["num_train_samples"] = sum(len(x.chunks) for x in ds_train.data)
 
-    maybe_update_config(cfg, encodings)
+    maybe_update_config(cfg, encodings=encodings, tokenizer=tokenizer)
 
     # save config
     os.makedirs(cfg.output_dir, exist_ok=True)

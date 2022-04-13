@@ -1,8 +1,10 @@
 # @package _global_
 model_cls:
-  path: ???
+  path: src.model.dependency_parsing.BertForDependencyParsing
 
 model:
+  bert:
+    root_token_id: ???
   parser:
     use_birnn: false
     rnn:

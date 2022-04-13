@@ -45,7 +45,7 @@ def main(overrides: DictConfig):
     #    потому что в случае косяков на уровне документов вылезла бы AssertionError на шаге 3.
     #    Но всё равно лучше явно написать doc_level=False, чтоб было понятней.
     ds = ds \
-        .load(data_dir=cfg.test_data_dir, limit=cfg.num_examples_test) \
+        .load(cfg.test_data_path, limit=cfg.num_examples_test) \
         .clear() \
         .check() \
         .preprocess() \
@@ -61,7 +61,7 @@ def main(overrides: DictConfig):
     model.predict(ds.data)  # TODO: добавить специфичные для модели kwargs
 
     logger.info(f"saving predictions to {cfg.output_dir}")
-    to_brat_v2(ds.data, output_dir=cfg.output_dir)
+    ds.save(cfg.path_out)
 
 
 if __name__ == "__main__":

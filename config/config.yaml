@@ -58,14 +58,14 @@ inference:
   max_chunk_length: ${dataset.max_chunk_length}
 
 # for training
-train_data_dir: ???
-valid_data_dir: ???
+train_data_path: ???
+valid_data_path: ???
 num_examples_train: -1
 num_examples_valid: -1
 scope_to_save: null
 
 # for inference
-test_data_dir: ???
+test_data_path: ???
 model_dir: ???
 scope_to_load: ${scope_to_save}
 num_examples_test: -1

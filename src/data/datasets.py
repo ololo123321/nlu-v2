@@ -5,7 +5,7 @@ import tqdm
 
 from bert.tokenization import FullTokenizer
 
-from src.data.io import load_collection, simplify, read_file_v3, from_conllu
+from src.data.io import load_collection, simplify, read_file_v3, from_conllu, to_conllu, to_brat_v2
 from src.data.check import check_tokens_entities_alignment, check_arcs, check_split
 from src.data.preprocessing import split_example_v2, enumerate_entities, get_connected_components
 from src.data.base import Languages, Example
@@ -44,9 +44,9 @@ class BaseDataset(ABC, LoggerMixin):
         self.fix_sent_pointers = fix_sent_pointers
 
     @log
-    def load(self, data_dir: str, limit: int = None, read_fn: Callable = read_file_v3):
+    def load(self, path: str, limit: int = None, read_fn: Callable = read_file_v3):
         self.data = load_collection(
-            data_dir=data_dir,
+            data_dir=path,
             n=limit,
             tokens_expression=self.tokens_expression,
             ignore_bad_examples=self.ignore_bad_examples,
@@ -55,6 +55,11 @@ class BaseDataset(ABC, LoggerMixin):
         )
         return self
 
+    @log
+    def save(self, path: str) -> None:
+        to_brat_v2(self.data, output_dir=path)
+
+    @log
     def filter(self, doc_level=True, chunk_level=True):
         """
         какие документы есть смысл использовать:
@@ -86,10 +91,12 @@ class BaseDataset(ABC, LoggerMixin):
                          f"({num_chunks_init - num_chunks_new} removed).")
         return self
 
+    @log
     def preprocess(self):
         self.data = [self._preprocess_example(x) for x in tqdm.tqdm(self.data)]
         return self
 
+    @log
     def check(self, doc_level=True, chunk_level=True):
         """
         как filter, только вызывается AssertionError, если пример не прошёл условия,
@@ -106,6 +113,7 @@ class BaseDataset(ABC, LoggerMixin):
                     assert self._is_valid_chunk(chunk)
         return self
 
+    @log
     def clear(self):
         """
         подготовка примеров для инференса:
@@ -116,6 +124,7 @@ class BaseDataset(ABC, LoggerMixin):
             self._clear_example(x)
         return self
 
+    @log
     def fit(self) -> Dict:
         """
         получение маппинга label -> int
@@ -240,10 +249,15 @@ class CoreferenceResolutionDataset(BaseDataset):
 
 
 class DependencyParsingDataset(BaseDataset):
-    def load(self, data_dir: str, limit: int = None, read_fn: Callable = read_file_v3):
-        self.data = from_conllu(path=data_dir, warn=False)
+    @log
+    def load(self, path: str, limit: int = None, read_fn: Callable = read_file_v3):
+        self.data = from_conllu(path=path, warn=False)
         return self
 
+    def save(self, path: str) -> None:
+        to_conllu(self.data, path)
+
+    @log
     def fit(self) -> Dict:
         labels = set()
         for x in self.data:
@@ -255,30 +269,30 @@ class DependencyParsingDataset(BaseDataset):
         }
         return res
 
-    # TODO
     def _is_valid_example(self, x: Example) -> bool:
+        """
+        * делить на предложения не нужно -> не нужно проверять корректность разбиения на предложения
+        * нет ни рёбер, ни сущностей -> не нужно проверять корректность этих товарищей
+        """
         return True
 
-    # TODO
     def _is_valid_chunk(self, x: Example) -> bool:
+        """
+        * нет ни рёбер, ни сущностей -> не нужно проверять корректность этих товарищей
+        """
         return True
 
     def _preprocess_example(self, x: Example) -> Example:
-        x = simplify(x)
-        x.chunks = split_example_v2(
-            x,
-            window=self.window,
-            stride=self.stride,
-            lang=self.language,
-            tokens_expression=self.tokens_expression,
-            fix_pointers=self.fix_sent_pointers
-        )
+        """
+        * исходные документы уже разбиты на предложения -> делить на них не нужно
+        * убирать лишние рёбра тоже не нужно, потому что их нет: синтаксические деревья заданы над токенами,
+        а у каждого токена есть атрибуты id_head (номер родителя) и rel (тип отношения) -> упрощать граф не нужно
+        """
         for chunk in x.chunks:
             self._apply_bpe(chunk)
         return x
 
     def _clear_example(self, x: Example) -> None:
-        x.arcs = []  # TODO: излишне
         for t in x.tokens:
             t.reset()
 

@@ -535,7 +535,7 @@ def simplify(example: Example) -> Example:
     :param example:
     :return:
     """
-    assert isinstance(example.id, str)
+    assert isinstance(example.id, str), f'example.id: {example.id}, type: {type(example.id)}'
 
     span_to_entities = defaultdict(set)
     span_pair_to_arcs = defaultdict(set)
@@ -927,7 +927,11 @@ def from_conllu(path: str, warn: bool = True) -> List[Example]:
                     else:
                         if filename_doc != filename_chunk:
                             if len(chunks_i) > 0:
-                                x = Example(filename=filename_doc, chunks=chunks_i.copy())
+                                x = Example(
+                                    filename=filename_doc,
+                                    id=filename_doc,
+                                    chunks=chunks_i.copy()
+                                )
                                 examples.append(x)
                                 chunks_i.clear()
                             else:
@@ -990,7 +994,11 @@ def from_conllu(path: str, warn: bool = True) -> List[Example]:
                 print(f"[{filename_doc}] chunk {id_sent} has no tokens")
 
     if len(chunks_i) > 0:
-        x = Example(filename=filename_doc, chunks=chunks_i.copy())
+        x = Example(
+            filename=filename_doc,
+            id=filename_doc,
+            chunks=chunks_i.copy()
+        )
         examples.append(x)
     else:
         print(f"[{filename_doc}] no valid chunks")
@@ -1007,6 +1015,24 @@ def from_conllu(path: str, warn: bool = True) -> List[Example]:
     print("num sentences ignored:", num_chunks_ignored)
 
     return examples
+
+
+def to_conllu(examples, path):
+    with open(path, "w") as f:
+        for x in examples:
+            chunks_sorted = sorted(x.chunks, key=lambda c: int(c.id.split("_")[-1]))
+            for chunk in chunks_sorted:
+                f.write(f'# sent_id = {chunk.id}\n')
+                f.write(f'# text = {chunk.text}\n')
+                for i, t in enumerate(chunk.tokens):
+                    features = ["_"] * 10
+                    features[0] = str(i + 1)
+                    features[1] = t.text
+                    features[3] = t.pos
+                    features[6] = str(t.id_head + 1)
+                    features[7] = t.rel
+                    f.write("\t".join(features) + "\n")
+                f.write("\n")
 
 
 # if __name__ == "__main__":
