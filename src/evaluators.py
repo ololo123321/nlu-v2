@@ -24,6 +24,11 @@ class CoreferenceResolutionEvaluator(BaseEvaluator):
 
     @log
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
+        self.logger.info("check examples match")
+        assert len(examples_gold) == len(examples_pred)
+        for x, y in zip(examples_gold, examples_pred):
+            assert x.id == y.id
+
         self.logger.info("assigning chain ids...")
         for x in examples_gold:
             assign_chain_ids(x)
@@ -63,4 +68,36 @@ class DependencyParsingEvaluator(BaseEvaluator):
 
     @log
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
-        pass
+        """
+        Так как документы уже разделены на предложения, то нужны дополнительные проверки того, есть матчинг 1 к 1
+        """
+        id2gold = {}
+        gold_ids = set()
+        for x in examples_gold:
+            for chunk in x.chunks:
+                assert chunk.id not in id2gold.keys(), f'duplicated id: {chunk.id}'
+                id2gold[chunk.id] = chunk
+                gold_ids.add(chunk.id)
+        metrics = {
+            "las": 0.0,
+            "uas": 0.0,
+            "support": 0
+        }
+        for x in examples_pred:
+            for chunk_pred in x.chunks:
+                assert chunk_pred.id in gold_ids, f'unknown chunk: {chunk_pred.id}'
+                chunk_gold = id2gold[chunk_pred.id]
+                assert len(chunk_pred.tokens) == len(chunk_gold.tokens), \
+                    f'{len(chunk_pred.tokens)} != {len(chunk_gold.tokens)}'
+                for t_pred, t_gold in zip(chunk_pred.tokens, chunk_gold.tokens):
+                    assert t_pred.text == t_gold.gold.text, f'{t_pred.text} != {t_gold.text}'
+                    if t_pred.id_head == t_gold.id_head:
+                        metrics["uas"] += 1
+                        if t_pred.rel == t_gold.rel:
+                            metrics["las"] += 1
+                gold_ids.remove(chunk_pred.id)
+        metrics["las"] /= metrics["support"]
+        metrics["uas"] /= metrics["support"]
+        if len(gold_ids) > 0:
+            self.logger.warning(f'No predictions for {len(gold_ids)} sentences (top-10): {sorted(gold_ids)[:10]}')
+        return metrics

@@ -1,5 +1,5 @@
 # см. описание в predict.py
 test_data_path: ???
+predictions_path: ???
 model_dir: ???
-output_dir: ???
 num_examples_test: -1

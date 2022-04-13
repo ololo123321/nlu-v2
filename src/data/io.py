@@ -1020,7 +1020,8 @@ def from_conllu(path: str, warn: bool = True) -> List[Example]:
 def to_conllu(examples, path):
     with open(path, "w") as f:
         for x in examples:
-            chunks_sorted = sorted(x.chunks, key=lambda c: int(c.id.split("_")[-1]))
+            # chunks_sorted = sorted(x.chunks, key=lambda c: int(c.id.split("_")[-1]))
+            chunks_sorted = x.chunks
             for chunk in chunks_sorted:
                 f.write(f'# sent_id = {chunk.id}\n')
                 f.write(f'# text = {chunk.text}\n')

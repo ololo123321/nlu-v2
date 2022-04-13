@@ -2,9 +2,12 @@ defaults:
   - _self_
   - hydra: hydra_default
 
+dataset:
+  _target_: ???
+
 evaluator:
   _target_: ???
 
-gold_data_dir: ???
-pred_data_dir: ???
-output_path: null
+gold_data_path: ???
+predictions_path: ???
+metrics_path: null

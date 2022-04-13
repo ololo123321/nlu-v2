@@ -44,6 +44,9 @@ def main(overrides: DictConfig):
     # 5. фильтрация на уровне кусков. Фильтрации на уровне документов не будет,
     #    потому что в случае косяков на уровне документов вылезла бы AssertionError на шаге 3.
     #    Но всё равно лучше явно написать doc_level=False, чтоб было понятней.
+    # TODO: WARNING: примеры уже разбиты на кусочки (syntagrus) -> фильтруем какие-то кусочки ->
+    #  делаем предикт -> сохраняем -> при evaluate подгружаем оригинал и предикт для сравнения ->
+    #  они не будут матчиться 1 к 1
     ds = ds \
         .load(cfg.test_data_path, limit=cfg.num_examples_test) \
         .clear() \
@@ -58,10 +61,10 @@ def main(overrides: DictConfig):
     model.build(mode=ModeKeys.TEST)
     model.restore_weights(model_dir=cfg.model_dir, scope=None)  # TODO: прояснить логику со scope
 
-    model.predict(ds.data)  # TODO: добавить специфичные для модели kwargs
+    model.predict(ds.data)  # TODO: добавить специфичные для модели kwargs (нужно для cr)
 
-    logger.info(f"saving predictions to {cfg.output_dir}")
-    ds.save(cfg.path_out)
+    logger.info(f"saving predictions to {cfg.predictions_path}")
+    ds.save(cfg.predictions_path)
 
 
 if __name__ == "__main__":

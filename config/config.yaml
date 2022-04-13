@@ -66,6 +66,7 @@ scope_to_save: null
 
 # for inference
 test_data_path: ???
+predictions_path: ???
 model_dir: ???
 scope_to_load: ${scope_to_save}
 num_examples_test: -1
