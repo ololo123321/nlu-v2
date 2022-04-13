@@ -14,10 +14,11 @@ logger = logging.getLogger("evaluate")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
-    logger.info("load data...")
+    logger.info("loading gold data...")
     ds_gold = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=None)
     ds_gold = ds_gold.load(cfg.gold_data_path)
 
+    logger.info("loading predictions...")
     ds_pred = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=None)
     ds_pred = ds_pred.load(cfg.predictions_path)
 

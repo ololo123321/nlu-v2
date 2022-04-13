@@ -1,4 +1,4 @@
-experiment="coreference_resolution/evaluate"
+experiment="dependency_parsing"
 gold_data_path=""
 predictions_path=""
 metrics_path=null
