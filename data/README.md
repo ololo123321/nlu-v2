@@ -6,5 +6,6 @@
 * syntagrus-v2.8 - более свежая версия SynTagRus, см. [changelog](https://github.com/UniversalDependencies/UD_Russian-SynTagRus#changelog)
 * rured - оригинальный [RuRED](https://github.com/InstituteForIndustrialEconomics/rured)
 * rured_fixed - RuRED со своими правками
+* collection3 - оригинальный [Collection3](https://labinform.ru/pub/named_entities/descr_ne.htm)
 * collection5 - оригинальный [Collection5](https://labinform.ru/pub/named_entities/descr_ne.htm)
 * collection5_fixed - Collection5 со своими правками
