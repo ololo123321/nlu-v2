@@ -138,7 +138,7 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
         return performance_info
 
     def verbose_fn(self, metrics: Dict) -> None:
-        self.logger.info("loss:", metrics["loss"])
+        self.logger.info(f'loss: {metrics["loss"]}')
         self.logger.info("entity-level metrics:")
         self.logger.info(classification_report_to_string(metrics["metrics"]["entity_level"]))
 

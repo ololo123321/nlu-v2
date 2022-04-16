@@ -24,10 +24,11 @@ class BaseDataset(ABC, LoggerMixin):
             tokens_expression: Union[str, Pattern] = None,
             ignore_bad_examples: bool = True,
             max_chunk_length: int = 512,
-            window: int = 3,
+            window: int = 1,
             stride: int = 1,
             language: str = Languages.RU,
             fix_sent_pointers: bool = True,
+            read_fn: Callable = None,
             logger_parent_name: str = None
     ):
         super().__init__(logger_parent_name=logger_parent_name)
@@ -42,15 +43,19 @@ class BaseDataset(ABC, LoggerMixin):
         self.stride = stride
         self.language = language
         self.fix_sent_pointers = fix_sent_pointers
+        if read_fn is not None:
+            self.read_fn = read_fn
+        else:
+            self.read_fn = read_file_v3
 
     @log
-    def load(self, path: str, limit: int = None, read_fn: Callable = read_file_v3):
+    def load(self, path: str, limit: int = None):
         self.data = load_collection(
             data_dir=path,
             n=limit,
             tokens_expression=self.tokens_expression,
             ignore_bad_examples=self.ignore_bad_examples,
-            read_fn=read_fn,
+            read_fn=self.read_fn,
             verbose_fn=self.logger.info
         )
         return self
@@ -302,6 +307,36 @@ class DependencyParsingDataset(BaseDataset):
 
 
 class SequenceLabelingDataset(BaseDataset):
+    def __init__(
+            self,
+            data: List[Example] = None,
+            tokenizer: FullTokenizer = None,
+            tokens_expression: Union[str, Pattern] = None,
+            ignore_bad_examples: bool = True,
+            max_chunk_length: int = 512,
+            window: int = 1,
+            stride: int = 1,
+            language: str = Languages.RU,
+            fix_sent_pointers: bool = True,
+            read_fn: Callable = None,
+            is_flat_ner: bool = True,
+            logger_parent_name: str = None
+    ):
+        super().__init__(
+            data=data,
+            tokenizer=tokenizer,
+            tokens_expression=tokens_expression,
+            ignore_bad_examples=ignore_bad_examples,
+            max_chunk_length=max_chunk_length,
+            window=window,
+            stride=stride,
+            language=language,
+            fix_sent_pointers=fix_sent_pointers,
+            read_fn=read_fn,
+            logger_parent_name=logger_parent_name
+        )
+        self.is_flat_ner = is_flat_ner
+
     @log
     def fit(self) -> Dict:
         labels = set()
@@ -318,9 +353,23 @@ class SequenceLabelingDataset(BaseDataset):
     def _is_valid_example(self, x: Example) -> bool:
         """
         * спаны сущностей согласованы с текстом
+        * если плоский нер, то не должно быть вложенных сущностей
         """
         try:
             check_tokens_entities_alignment(x)
+            if self.is_flat_ner:
+                entities_sorted = sorted(
+                    x.entities, key=lambda e: (e.tokens[0].span_abs.start, e.tokens[-1].span_abs.end)
+                )
+                for i in range(len(entities_sorted) - 1):
+                    e1 = entities_sorted[i]
+                    e2 = entities_sorted[i + 1]
+                    if e1.tokens[-1].span_abs.end > e2.tokens[0].span_abs.start:
+                        self.logger.warning(f'[{x.id}] overlapping entities: {e1.id} and {e2.id}')
+                        return False
+                return True
+            else:
+                return True
         except AssertionError:
             return False
 

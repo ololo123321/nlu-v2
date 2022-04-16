@@ -16,6 +16,8 @@ def maybe_update_config(cfg, encodings, tokenizer):
     if "parser" in cfg["model"]:
         cfg["model"]["parser"]["biaffine_type"]["num_labels"] = len(encodings["rel_enc"])
         cfg["model"]["bert"]["root_token_id"] = tokenizer.vocab["[unused1]"]
+    if "ner" in cfg["model"]:
+        cfg["model"]["ner"]["num_labels"] = len(encodings["ner_enc"])
 
 
 @hydra.main(config_path="../config", config_name="config")

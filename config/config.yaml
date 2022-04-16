@@ -10,6 +10,11 @@ model:
   pretrained_dir: ???
   birnn:
     use: false
+    params:
+      num_layers: 1
+      cell_dim: 256
+      dropout: 0.5
+      recurrent_dropout: 0.0
   bert:
     test_mode: false
     dropout: 0.2
@@ -38,13 +43,16 @@ dataset:
   tokens_expression: null
   ignore_bad_examples: true
   max_chunk_length: 512
-  window: 3
+  window: 1
   stride: 1
   language: ru
   fix_sent_pointers: true
+  read_fn:
+    _target_: hydra.utils.get_static_method
+    path: src.data.io.read_file_v3
 
 training:
-  num_epochs: 100
+  num_epochs: 10
   batch_size: 16
   max_epochs_wo_improvement: 10
   num_train_samples: ???  # need to get learning rate schedule

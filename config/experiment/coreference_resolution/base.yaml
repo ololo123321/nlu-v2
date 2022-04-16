@@ -32,6 +32,7 @@ model:
 
 dataset:
   _target_: src.data.datasets.CoreferenceResolutionDataset
+  window: 3
 
 validation:
   path_true: /tmp/gold.conll
