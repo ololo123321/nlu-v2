@@ -6,7 +6,7 @@ from src.model.base import BaseModelNER, BaseModelBert, ModeKeys
 from src.model.layers import GraphEncoder, GraphEncoderInputs
 from src.model.utils import upper_triangular
 from src.metrics import classification_report, classification_report_ner
-from src.utils import get_entity_spans, batches_gen, get_filtered_by_length_chunks, log, tf
+from src.utils import get_entity_spans, batches_gen, log, tf, classification_report_to_string
 
 
 class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
@@ -82,9 +82,10 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
 
     @log
     def evaluate(self, examples: List[Example], **kwargs) -> Dict:
-        chunks = get_filtered_by_length_chunks(
-            examples=examples, maxlen=self.config["inference"]["maxlen"], pieces_level=self._is_bpe_level
-        )
+        chunks = []
+        for x in examples:
+            for chunk in x.chunks:
+                chunks.append(chunk)
 
         y_true = []
         y_true_flat = []
@@ -121,12 +122,8 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
         loss = total_loss / loss_denominator
 
         # ner
-        ner_metrics_entity_level = classification_report_ner(
-            y_true=y_true, y_pred=y_pred, joiner=self.config["model"]["ner"]["prefix_joiner"]
-        )
-        ner_metrics_token_level = classification_report(
-            y_true=y_true_flat, y_pred=y_pred_flat, trivial_label="O"
-        )
+        ner_metrics_entity_level = classification_report_ner(y_true=y_true, y_pred=y_pred)
+        ner_metrics_token_level = classification_report(y_true=y_true_flat, y_pred=y_pred_flat)
 
         score = ner_metrics_entity_level["micro"]["f1"]
         performance_info = {
@@ -139,6 +136,11 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
         }
 
         return performance_info
+
+    def verbose_fn(self, metrics: Dict) -> None:
+        self.logger.info("loss:", metrics["loss"])
+        self.logger.info("entity-level metrics:")
+        self.logger.info(classification_report_to_string(metrics["metrics"]["entity_level"]))
 
     # TODO: реалзиовать случай window > 1
     # TODO: bug: при текущей логике обработки токенов, которые не удаётся разбить на кусочки
@@ -153,15 +155,19 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
         ner - запись лейблов в Token.labels
         re - создание новых инстансов Arc и запись их в Example.arcs
         """
-        maxlen = self.config["inference"]["maxlen"]
-        chunks = get_filtered_by_length_chunks(examples=examples, maxlen=maxlen, pieces_level=self._is_bpe_level)
+        if self.config["inference"]["window"] != 1:
+            raise NotImplementedError(
+                f'current inference implemented only for window=1, but got window {self.config["inference"]["window"]}'
+            )
 
-        # проверка примеров
-        for x in chunks:
-            assert x.parent is not None, f"[{x.id}] parent is not set. " \
-                f"It is not a problem, but must be set for clarity"
-            for t in x.tokens:
-                assert t.label is None, f"[{x.id}] tokens are already annotated"
+        chunks = []
+        for x in examples:
+            for chunk in x.chunks:
+                assert x.parent is not None, f"[{x.id}] parent is not set. " \
+                    f"It is not a problem, but must be set for clarity"
+                for t in x.tokens:
+                    assert t.label is None, f"[{x.id}] tokens are already annotated"
+                chunks.append(chunk)
 
         id2example = {x.id: x for x in examples}
         assert len(id2example) == len(examples), f"examples must have unique ids, " \
@@ -187,7 +193,7 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
                     label = self.inv_ner_enc[id_label]
                     ner_labels_i.append(label)
 
-                tag2spans = get_entity_spans(labels=ner_labels_i, joiner=self.config["model"]["ner"]["prefix_joiner"])
+                tag2spans = get_entity_spans(labels=ner_labels_i)
                 for label, spans in tag2spans.items():
                     for span in spans:
                         start_abs = chunk.tokens[span.start].index_abs
@@ -457,6 +463,11 @@ class BertForNerAsDependencyParsing(BaseModelNER, BaseModelBert):
         }
 
         return performance_info
+
+    def verbose_fn(self, metrics: Dict) -> None:
+        self.logger.info("loss:", metrics["loss"])
+        self.logger.info("entity-level metrics:")
+        self.logger.info(classification_report_to_string(metrics["metrics"]))
 
     # TODO: реалзиовать случай window > 1
     # TODO: копипаста в начале с BertForFlatNER

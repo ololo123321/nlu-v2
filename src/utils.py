@@ -8,7 +8,7 @@ from typing import List, Dict, Set
 
 import numpy as np
 
-from src.data.base import Span, Example
+from src.data.base import Span, Example, get_entity_label, NO_LABEL
 
 
 import tensorflow as tf
@@ -165,11 +165,10 @@ def classification_report_to_string(d: Dict, digits: int = 4) -> str:
     return report
 
 
-def get_entity_spans(labels: List[str], joiner: str = '-') -> Dict[str, Set[Span]]:
+def get_entity_spans(labels: List[str]) -> Dict[str, Set[Span]]:
     """
     поддерживает только кодировку BIO
     :param labels:
-    :param joiner:
     :return: map:
     """
     tag2spans = defaultdict(set)
@@ -189,7 +188,7 @@ def get_entity_spans(labels: List[str], joiner: str = '-') -> Dict[str, Set[Span
     for i in range(num_labels):
         label = labels[i]
         bio = label[0]
-        tag = label.split(joiner)[-1]
+        tag = get_entity_label(label)
 
         if bio == "B":
             if entity_tag is not None:
@@ -205,7 +204,7 @@ def get_entity_spans(labels: List[str], joiner: str = '-') -> Dict[str, Set[Span
                 else:
                     tag2spans[entity_tag].add(Span(start, end))
                     flag = False
-        elif bio == "O":
+        elif bio == NO_LABEL:
             if flag:
                 tag2spans[entity_tag].add(Span(start, end))
                 flag = False

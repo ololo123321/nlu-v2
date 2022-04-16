@@ -27,9 +27,34 @@ class NerEncodings:
     BILOU = "bilou"
 
 
-class NerPrefixJoiners:
-    UNDERSCORE = "_"  # WARNING: этот символ может встречаться в названиях сущностей/событий/отношений
-    HYPHEN = "-"
+# class NerPrefixJoiners:
+#     UNDERSCORE = "_"  # WARNING: этот символ может встречаться в названиях сущностей/событий/отношений
+#     HYPHEN = "-"
+
+
+NER_PREFIX_JOINER = '-'
+NO_LABEL = "O"  # TODO: мб объединить в класс специальные лейблы и префиксы {B, I, L, U}
+NO_LABEL_ID = 0
+
+
+def get_entity_label(tag: str) -> str:
+    if tag == NO_LABEL:
+        return NO_LABEL
+    else:
+        assert len(tag) > 1, f'invalid tag: {tag}'
+        if tag[1] == NER_PREFIX_JOINER:
+            return NER_PREFIX_JOINER.join(tag.split(NER_PREFIX_JOINER)[1:])
+        else:
+            return tag
+
+
+def is_trivial_label(label: Union[str, int]) -> bool:
+    if isinstance(label, str):
+        return label == NO_LABEL
+    elif isinstance(label, int):
+        return label == NO_LABEL_ID
+    else:
+        raise ValueError(f'expected label to be str or int, but got {label} with type {type(label)}')
 
 
 class LineTypes:
@@ -230,3 +255,22 @@ class Example(ReprMixin):
         self.label = label  # в случае классификации предложений
         self.parent = parent
         self.chunks = chunks if chunks is not None else []  # список инстансов класса Example
+
+    def assign_labels_to_tokens(self):
+        for t in self.tokens:
+            t.label = None
+        for entity in self.entities:
+            num_tokens = len(entity.tokens)
+            assert num_tokens > 0
+            for i in range(num_tokens):
+                if i == 0:
+                    prefix = "B" + NER_PREFIX_JOINER
+                else:
+                    prefix = "I" + NER_PREFIX_JOINER
+                label = prefix + entity.label
+                t = entity.tokens[i]
+                assert t.label is None, f"[{self.id}] token {t.text} has already label {t.label}"
+                t.label = label
+        for t in self.tokens:
+            if t.label is None:
+                t.label = NO_LABEL

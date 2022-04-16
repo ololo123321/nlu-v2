@@ -9,8 +9,6 @@ from src.data.base import (
     Entity,
     Example,
     Languages,
-    NerEncodings,
-    NerPrefixJoiners,
     TOKENS_EXPRESSION,
     Span,
 )
@@ -366,30 +364,29 @@ def assign_sent_ids_to_tokens(example: Example, pointers: List[int]):
             t.id_sent = i
 
 
-# TODO: последние два аргумента нужны только для flat ner!!1!
-def apply_bpe(
-        example: Example,
-        tokenizer,
-        ner_prefix_joiner: str = NerPrefixJoiners.HYPHEN,
-        ner_encoding: str = NerEncodings.BIO
-):
-    if ner_encoding != NerEncodings.BIO:
-        raise NotImplementedError
-
-    for t in example.tokens:
-        t.pieces = tokenizer.tokenize(t.text)
-        t.token_ids = tokenizer.convert_tokens_to_ids(t.pieces)
-        # num_pieces = len(t.pieces)
-        # for label in t.labels:
-        #     # (Иван, B-PER) -> ([Ив, #ан], [B-PER, I-PER])
-        #     t.labels_pieces.append(label)
-        #     if num_pieces > 1:
-        #         if label[0] == "B":
-        #             _, tag = label.split(ner_prefix_joiner)
-        #             pad = f"I{ner_prefix_joiner}{tag}"
-        #         else:
-        #             pad = label
-        #         t.labels_pieces += [pad] * (num_pieces - 1)
+# # TODO: последние два аргумента нужны только для flat ner!!1!
+# def apply_bpe(
+#         example: Example,
+#         tokenizer,
+#         ner_encoding: str = NerEncodings.BIO
+# ):
+#     if ner_encoding != NerEncodings.BIO:
+#         raise NotImplementedError
+#
+#     for t in example.tokens:
+#         t.pieces = tokenizer.tokenize(t.text)
+#         t.token_ids = tokenizer.convert_tokens_to_ids(t.pieces)
+#         # num_pieces = len(t.pieces)
+#         # for label in t.labels:
+#         #     # (Иван, B-PER) -> ([Ив, #ан], [B-PER, I-PER])
+#         #     t.labels_pieces.append(label)
+#         #     if num_pieces > 1:
+#         #         if label[0] == "B":
+#         #             _, tag = label.split(ner_prefix_joiner)
+#         #             pad = f"I{ner_prefix_joiner}{tag}"
+#         #         else:
+#         #             pad = label
+#         #         t.labels_pieces += [pad] * (num_pieces - 1)
 
 
 def enumerate_entities(example: Example):

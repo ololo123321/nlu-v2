@@ -14,7 +14,6 @@ from src.data.base import (
     Example,
     LineTypes,
     NerEncodings,
-    NerPrefixJoiners,
     Span,
     Token,
     TOKENS_EXPRESSION
@@ -476,18 +475,18 @@ def get_label_prefix(entity_token_index: int, num_entity_tokens: int, ner_encodi
     return prefix
 
 
-def fix_entity_label(label: str, ner_prefix_joiner: str) -> str:
-    """
-    Нужна гарантия того, что лейбл не содержит разделитель
-    """
-    if ner_prefix_joiner == NerPrefixJoiners.HYPHEN:
-        repl = NerPrefixJoiners.UNDERSCORE
-    elif ner_prefix_joiner == NerPrefixJoiners.UNDERSCORE:
-        repl = NerPrefixJoiners.HYPHEN
-    else:
-        raise Exception
-    label = label.replace(ner_prefix_joiner, repl)
-    return label
+# def fix_entity_label(label: str, ner_prefix_joiner: str) -> str:
+#     """
+#     Нужна гарантия того, что лейбл не содержит разделитель
+#     """
+#     if ner_prefix_joiner == NerPrefixJoiners.HYPHEN:
+#         repl = NerPrefixJoiners.UNDERSCORE
+#     elif ner_prefix_joiner == NerPrefixJoiners.UNDERSCORE:
+#         repl = NerPrefixJoiners.HYPHEN
+#     else:
+#         raise Exception
+#     label = label.replace(ner_prefix_joiner, repl)
+#     return label
 
 
 def remove_role_index(s: str) -> str:

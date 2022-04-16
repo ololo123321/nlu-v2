@@ -8,7 +8,7 @@ from bert.tokenization import FullTokenizer
 from src.data.io import load_collection, simplify, read_file_v3, from_conllu, to_conllu, to_brat_v2
 from src.data.check import check_tokens_entities_alignment, check_arcs, check_split
 from src.data.preprocessing import split_example_v2, enumerate_entities, get_connected_components
-from src.data.base import Languages, Example
+from src.data.base import Languages, Example, NO_LABEL
 from src.utils import LoggerMixin, log
 
 
@@ -254,6 +254,7 @@ class DependencyParsingDataset(BaseDataset):
         self.data = from_conllu(path=path, warn=False)
         return self
 
+    @log
     def save(self, path: str) -> None:
         to_conllu(self.data, path)
 
@@ -299,7 +300,70 @@ class DependencyParsingDataset(BaseDataset):
             for t in chunk.tokens:
                 t.reset()
 
-#
+
+class SequenceLabelingDataset(BaseDataset):
+    @log
+    def fit(self) -> Dict:
+        labels = set()
+        for x in self.data:
+            for t in x.tokens:
+                if t.label != NO_LABEL:
+                    labels.add(t.label)
+        labels = [NO_LABEL] + sorted(labels)
+        res = {
+            "ner_enc": {x: i for i, x in enumerate(labels)}
+        }
+        return res
+
+    def _is_valid_example(self, x: Example) -> bool:
+        """
+        * спаны сущностей согласованы с текстом
+        """
+        try:
+            check_tokens_entities_alignment(x)
+        except AssertionError:
+            return False
+
+    def _is_valid_chunk(self, x: Example) -> bool:
+        """
+        кроме условий для документа нужно ещё проверить следующие условия:
+        * корректность разбиения на предложения (см. условия в описании функции check_split)
+        * отсутствие символов, которые не удётся токенизировать TODO: проверить, почему это важно
+        """
+        if self._is_valid_example(x):
+            try:
+                check_split(x, window=self.window, fixed_sent_pointers=self.fix_sent_pointers)
+                if all(len(t.token_ids) > 0 for t in x.tokens):
+                    return True
+                else:
+                    return False
+            except AssertionError:
+                return False
+        else:
+            return False
+
+    def _preprocess_example(self, x: Example) -> Example:
+        x.assign_labels_to_tokens()
+        x.chunks = split_example_v2(
+            x,
+            window=self.window,
+            stride=self.stride,
+            lang=self.language,
+            tokens_expression=self.tokens_expression,
+            fix_pointers=self.fix_sent_pointers
+        )
+        for chunk in x.chunks:
+            self._apply_bpe(chunk)
+        return x
+
+    def _clear_example(self, x: Example) -> None:
+        # for t in x.tokens:
+        #     t.reset()
+        for chunk in x.chunks:
+            for t in chunk.tokens:
+                t.reset()
+
+
 # for chunk in chunks:
 #     check_split(chunk, window=self.window, fixed_sent_pointers=self.fix_sent_pointers)
 #     if len(chunk.entities) > 0:

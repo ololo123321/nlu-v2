@@ -1,0 +1,23 @@
+# @package _global_
+model_cls:
+  path: src.models.ner.BertForNerAsSequenceLabeling
+
+config:
+  model:
+    ner:
+      use_crf: true
+      num_labels: null  # заполняется в train.py
+      no_entity_id: null  # заполняется в train.py
+      prefix_joiner: "-"  # должно быть согласовано с дата пайплайном
+      use_birnn: false
+      rnn:
+        num_layers: 1
+        cell_dim: 128
+        dropout: 0.5
+        recurrent_dropout: 0.0
+
+dataset:
+  _target_: src.data.datasets.SequenceLabelingDataset
+
+evaluator:
+  _target_: src.evaluators.SequenceLabelingEvaluator

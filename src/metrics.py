@@ -1,14 +1,12 @@
 import subprocess
 from typing import List, Dict, Union, Set, Tuple
 from collections import defaultdict
+
 from src.utils import get_entity_spans
+from src.data.base import is_trivial_label
 
 
-def classification_report(
-        y_true: List[Union[int, str]],
-        y_pred: List[Union[int, str]],
-        trivial_label: Union[int, str] = 0
-) -> Dict:
+def classification_report(y_true: List[Union[int, str]], y_pred: List[Union[int, str]]) -> Dict:
     """
     {
         "label_1": {"precision": 1.0, "recall": 1.0, "f1": 1.0, "support": 10, "tp": 10, "fp": 0, "fn": 0},
@@ -22,13 +20,15 @@ def classification_report(
     d["micro"] = d["micro"]  # обязательный ключ
 
     for i in range(len(y_true)):
+        assert (isinstance(y_true[i], int) and isinstance(y_pred[i], int)) \
+               or (isinstance(y_true[i], str) and isinstance(y_pred[i], str))
         if y_true[i] == y_pred[i]:
-            if y_true[i] != trivial_label:
+            if is_trivial_label(y_true[i]):
                 d[y_true[i]]["tp"] += 1
                 d["micro"]["tp"] += 1
         else:
-            if y_true[i] == trivial_label:
-                if y_pred[i] == trivial_label:
+            if is_trivial_label(y_true[i]):
+                if is_trivial_label(y_pred[i]):
                     # y_true_i = 0, y_pred_i = 0
                     pass
                 else:
@@ -36,7 +36,7 @@ def classification_report(
                     d[y_pred[i]]["fp"] += 1
                     d["micro"]["fp"] += 1
             else:
-                if y_pred[i] == trivial_label:
+                if is_trivial_label(y_pred[i]):
                     # y_true_i = 2, y_pred_i = 0
                     d[y_true[i]]["fn"] += 1
                     d["micro"]["fn"] += 1
@@ -54,7 +54,7 @@ def classification_report(
     return d
 
 
-def classification_report_ner(y_true: List[List[str]], y_pred: List[List[str]], joiner: str = "-") -> Dict:
+def classification_report_ner(y_true: List[List[str]], y_pred: List[List[str]]) -> Dict:
     """
     тот же формат, что и classification_report
     """
@@ -64,8 +64,8 @@ def classification_report_ner(y_true: List[List[str]], y_pred: List[List[str]], 
 
     for i in range(len(y_true)):
         assert len(y_true[i]) == len(y_pred[i])
-        d_true = get_entity_spans(y_true[i], joiner=joiner)
-        d_pred = get_entity_spans(y_pred[i], joiner=joiner)
+        d_true = get_entity_spans(y_true[i])
+        d_pred = get_entity_spans(y_pred[i])
         common_tags = set(d_true.keys()) | set(d_pred.keys())
         for tag in common_tags:
             tp = len(d_true[tag] & d_pred[tag])

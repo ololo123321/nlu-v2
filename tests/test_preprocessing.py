@@ -1,6 +1,6 @@
 import pytest
 from src.data.base import Languages, Example, Token, Span
-from src.data.preprocessing import get_sentences_spans, split_example_v1, split_example_v2, apply_bpe
+from src.data.preprocessing import get_sentences_spans, split_example_v1, split_example_v2
 
 
 # get spans

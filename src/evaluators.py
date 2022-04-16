@@ -4,7 +4,7 @@ import os
 from src.utils import log, LoggerMixin, parse_conll_metrics
 from src.data.io import Example, to_conll
 from src.data.datasets import assign_chain_ids
-from src.metrics import get_coreferense_resolution_metrics
+from src.metrics import get_coreferense_resolution_metrics, classification_report, classification_report_ner
 
 
 class BaseEvaluator(LoggerMixin):
@@ -102,3 +102,37 @@ class DependencyParsingEvaluator(BaseEvaluator):
         if len(gold_ids) > 0:
             self.logger.warning(f'No predictions for {len(gold_ids)} sentences (top-10): {sorted(gold_ids)[:10]}')
         return metrics
+
+
+class SequenceLabelingEvaluator(BaseEvaluator):
+    def __init__(self, logger_parent_name: str = None):
+        super().__init__(logger_parent_name=logger_parent_name)
+
+    @log
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
+        """
+        лейблы должны быть присвоены всем токенам
+        """
+        y_true = self._get_labels(examples_gold)
+        y_pred = self._get_labels(examples_pred)
+
+        y_true_flat = [y for x in y_true for y in x]
+        y_pred_flat = [y for x in y_pred for y in x]
+
+        res = {
+            "entity_level": classification_report_ner(y_true=y_true, y_pred=y_pred),
+            "token_level": classification_report(y_true=y_true_flat, y_pred=y_pred_flat)
+        }
+        return res
+
+    @staticmethod
+    def _get_labels(examples: List[Example]) -> List[List[str]]:
+        labels = []
+        for x in examples:
+            labels_i = []
+            for t in x.tokens:
+                assert isinstance(t.label, str), \
+                    f'expected token label to be string, but got {t.label} of type {type(t.label)}'
+                labels_i.append(t.label)
+            labels.append(labels_i)
+        return labels
