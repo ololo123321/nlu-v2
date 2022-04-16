@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from src.data.base import Example, Entity
+from src.data.base import Example, Entity, NO_LABEL
 from src.data.postprocessing import get_valid_spans
 from src.model.base import BaseModelNER, BaseModelBert, ModeKeys
 from src.model.layers import GraphEncoder, GraphEncoderInputs
@@ -140,7 +140,7 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
     def verbose_fn(self, metrics: Dict) -> None:
         self.logger.info(f'loss: {metrics["loss"]}')
         self.logger.info("entity-level metrics:")
-        self.logger.info(classification_report_to_string(metrics["metrics"]["entity_level"]))
+        self.logger.info('\n' + classification_report_to_string(metrics["metrics"]["entity_level"]))
 
     # TODO: реалзиовать случай window > 1
     # TODO: bug: при текущей логике обработки токенов, которые не удаётся разбить на кусочки
@@ -163,10 +163,16 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
         chunks = []
         for x in examples:
             for chunk in x.chunks:
-                assert x.parent is not None, f"[{x.id}] parent is not set. " \
+                assert chunk.parent is not None, f"[{chunk.id}] parent is not set. " \
                     f"It is not a problem, but must be set for clarity"
                 for t in x.tokens:
-                    assert t.label is None, f"[{x.id}] tokens are already annotated"
+                    # в _preprocess_example дёргается функция assign_labels_to_tokens,
+                    # которая на train и valid должна присваивать каждому токену лейблы.
+                    # чтоб не писать дополнительных ифов проще пока здесь просто сделать лейблы None
+                    # assert t.label is None, f"[{chunk.id}] tokens are already annotated"
+                    if t.label is not None:
+                        assert t.label == NO_LABEL, f"[{chunk.id}] tokens are already annotated: {t}"
+                        t.label = None
                 chunks.append(chunk)
 
         id2example = {x.id: x for x in examples}

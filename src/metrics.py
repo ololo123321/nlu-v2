@@ -23,7 +23,7 @@ def classification_report(y_true: List[Union[int, str]], y_pred: List[Union[int,
         assert (isinstance(y_true[i], int) and isinstance(y_pred[i], int)) \
                or (isinstance(y_true[i], str) and isinstance(y_pred[i], str))
         if y_true[i] == y_pred[i]:
-            if is_trivial_label(y_true[i]):
+            if not is_trivial_label(y_true[i]):
                 d[y_true[i]]["tp"] += 1
                 d["micro"]["tp"] += 1
         else:

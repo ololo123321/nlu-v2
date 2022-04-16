@@ -25,13 +25,13 @@ def main(cfg: DictConfig):
     assert len(ds_gold.data) == len(ds_pred.data)
 
     evaluator = hydra.utils.instantiate(cfg.evaluator)
-    metrics = evaluator(ds_gold.data, ds_pred.data)
-    logger.info(metrics)
+    metric = evaluator(ds_gold.data, ds_pred.data)
+    logger.info(metric.string)
 
     if cfg.metrics_path is not None:
         logger.info(f"saving metrics to {cfg.metrics_path}")
         with open(cfg.metrics_path, "w") as f:
-            json.dump(metrics, f)
+            json.dump(metric.value, f)
     else:
         logger.info("saving ignored due to output_path is not provided")
 

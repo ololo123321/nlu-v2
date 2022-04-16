@@ -1,17 +1,22 @@
 from typing import List, Dict
+from collections import namedtuple
 import tempfile
 import os
-from src.utils import log, LoggerMixin, parse_conll_metrics
+import json
+from src.utils import log, LoggerMixin, parse_conll_metrics, classification_report_to_string
 from src.data.io import Example, to_conll
 from src.data.datasets import assign_chain_ids
 from src.metrics import get_coreferense_resolution_metrics, classification_report, classification_report_ner
+
+
+Metric = namedtuple("Metric", ["value", "string"])
 
 
 class BaseEvaluator(LoggerMixin):
     def __init__(self, logger_parent_name: str = None):
         super().__init__(logger_parent_name=logger_parent_name)
 
-    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
         """
         принимает на вход истинные примеры и предикты, выдаёт словарь с метриками
         """
@@ -23,7 +28,7 @@ class CoreferenceResolutionEvaluator(BaseEvaluator):
         self.scorer_path = scorer_path
 
     @log
-    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
         self.logger.info("check examples match")
         assert len(examples_gold) == len(examples_pred)
         for x, y in zip(examples_gold, examples_pred):
@@ -59,7 +64,7 @@ class CoreferenceResolutionEvaluator(BaseEvaluator):
         self.logger.info("removing temp files")
         os.remove(path_gold)
         os.remove(path_pred)
-        return metrics
+        return Metric(value=metrics, string=json.dumps(metrics, indent=2))
 
 
 class DependencyParsingEvaluator(BaseEvaluator):
@@ -67,7 +72,7 @@ class DependencyParsingEvaluator(BaseEvaluator):
         super().__init__(logger_parent_name=logger_parent_name)
 
     @log
-    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
         """
         Так как документы уже разделены на предложения, то нужны дополнительные проверки того, есть матчинг 1 к 1
         """
@@ -101,7 +106,7 @@ class DependencyParsingEvaluator(BaseEvaluator):
         metrics["uas"] /= metrics["support"]
         if len(gold_ids) > 0:
             self.logger.warning(f'No predictions for {len(gold_ids)} sentences (top-10): {sorted(gold_ids)[:10]}')
-        return metrics
+        return Metric(value=metrics, string=json.dumps(metrics, indent=2))
 
 
 class SequenceLabelingEvaluator(BaseEvaluator):
@@ -109,12 +114,21 @@ class SequenceLabelingEvaluator(BaseEvaluator):
         super().__init__(logger_parent_name=logger_parent_name)
 
     @log
-    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Dict:
-        """
-        лейблы должны быть присвоены всем токенам
-        """
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
+        # sanity check
+        assert len(examples_gold) == len(examples_pred)
+
+        # ensure the same order of examples
+        id2example = {x.id: x for x in examples_pred}
+        examples_pred_sort = [id2example[x.id] for x in examples_gold]
+
+        for x, y in zip(examples_gold, examples_pred_sort):
+            assert len(x.tokens) == len(y.tokens)
+            x.assign_labels_to_tokens()
+            y.assign_labels_to_tokens()
+
         y_true = self._get_labels(examples_gold)
-        y_pred = self._get_labels(examples_pred)
+        y_pred = self._get_labels(examples_pred_sort)
 
         y_true_flat = [y for x in y_true for y in x]
         y_pred_flat = [y for x in y_pred for y in x]
@@ -123,7 +137,18 @@ class SequenceLabelingEvaluator(BaseEvaluator):
             "entity_level": classification_report_ner(y_true=y_true, y_pred=y_pred),
             "token_level": classification_report(y_true=y_true_flat, y_pred=y_pred_flat)
         }
-        return res
+        s = ''
+        s += '\n'
+        s += 'entity level:'
+        s += '\n\n'
+        s += classification_report_to_string(res["entity_level"])
+        s += '\n'
+        s += '=' * 80
+        s += '\n'
+        s += 'token level:'
+        s += '\n\n'
+        s += classification_report_to_string(res["token_level"])
+        return Metric(value=res, string=s)
 
     @staticmethod
     def _get_labels(examples: List[Example]) -> List[List[str]]:

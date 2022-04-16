@@ -65,6 +65,6 @@ def test_classification_report_ner(y_true, y_pred, expected):
     ),
 ])
 def test_classification_report(y_true, y_pred, expected):
-    actual = classification_report(y_true=y_true, y_pred=y_pred, trivial_label=0)
+    actual = classification_report(y_true=y_true, y_pred=y_pred)
     # print(actual)
     assert actual == expected

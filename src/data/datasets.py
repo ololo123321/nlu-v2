@@ -299,8 +299,9 @@ class DependencyParsingDataset(BaseDataset):
         return x
 
     def _clear_example(self, x: Example) -> None:
-        # for t in x.tokens:
-        #     t.reset()
+        """
+        пример изначально разбит на кусочки, поэтому чистим только их
+        """
         for chunk in x.chunks:
             for t in chunk.tokens:
                 t.reset()
@@ -370,7 +371,8 @@ class SequenceLabelingDataset(BaseDataset):
                 return True
             else:
                 return True
-        except AssertionError:
+        except AssertionError as e:
+            self.logger.error(e)
             return False
 
     def _is_valid_chunk(self, x: Example) -> bool:
@@ -406,11 +408,9 @@ class SequenceLabelingDataset(BaseDataset):
         return x
 
     def _clear_example(self, x: Example) -> None:
-        # for t in x.tokens:
-        #     t.reset()
-        for chunk in x.chunks:
-            for t in chunk.tokens:
-                t.reset()
+        x.entities = []
+        for t in x.tokens:
+            t.reset()
 
 
 # for chunk in chunks:

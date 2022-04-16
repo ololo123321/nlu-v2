@@ -62,13 +62,15 @@ def load_collection(
     # парсим примеры для обучения
     examples = []
     error_counts = defaultdict(int)
+    _reader_fn = read_fn
+    n = 0
     for filename in tqdm.tqdm(names_to_parse):
         try:
             example = parse_example(
                 data_dir=data_dir,
                 filename=filename,
                 tokens_expression=tokens_expression,
-                read_fn=read_fn
+                read_fn=_reader_fn
             )
             examples.append(example)
         except (BadLineError, MultiRelationError, NestedNerError, NestedNerSingleEntityTypeError, RegexError) as e:
@@ -101,6 +103,10 @@ def load_collection(
                     )
                     examples.append(example)
                     flag = True
+                    n += 1
+                    if n == 3:
+                        verbose_fn(f"changing reader_fn: {read_fn} -> {read_fn_alt}")
+                        _reader_fn = read_fn_alt
                     break
                 except EntitySpanError as e:
                     verbose_fn(e)

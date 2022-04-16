@@ -70,7 +70,8 @@ def main(overrides: DictConfig):
     model.build(mode=ModeKeys.TEST)
     model.restore_weights(model_dir=cfg.model_dir, scope=None)  # TODO: прояснить логику со scope
 
-    model.predict(ds.data)  # TODO: добавить специфичные для модели kwargs (нужно для cr)
+    # TODO: добавить специфичные для модели kwargs (нужно для cr) # UPD: лучше прокидывать через config
+    model.predict(ds.data)
 
     logger.info(f"saving predictions to {cfg.predictions_path}")
     ds.save(cfg.predictions_path)
