@@ -205,6 +205,7 @@ def parse_example(
             if line_type == LineTypes.ENTITY:
                 # проверка того, что формат строки верный
                 try:
+                    # expected_entity_pattern - нужен только для проверки спана
                     _, entity, expected_entity_pattern = content
                 except ValueError:
                     raise BadLineError(f"[{filename}]: something is wrong with line: {line}")
