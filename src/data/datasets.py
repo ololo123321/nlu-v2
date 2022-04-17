@@ -142,11 +142,23 @@ class BaseDataset(ABC, LoggerMixin):
         какой пример является корректным.
         """
 
-    @abstractmethod
     def _is_valid_chunk(self, x: Example) -> bool:
         """
-        криетрии корректности к документам и кусочкам могут быть разными
+        кроме условий для документа нужно ещё проверить следующие условия:
+        * корректность разбиения на предложения (см. условия в описании функции check_split)
+        * отсутствие символов, которые не удётся токенизировать TODO: проверить, почему это важно
         """
+        if self._is_valid_example(x):
+            try:
+                check_split(x, window=self.window, fixed_sent_pointers=self.fix_sent_pointers)
+                if all(len(t.token_ids) > 0 for t in x.tokens):
+                    return True
+                else:
+                    return False
+            except AssertionError:
+                return False
+        else:
+            return False
 
     @abstractmethod
     def _preprocess_example(self, x: Example) -> Example:
@@ -231,24 +243,6 @@ class CoreferenceResolutionDataset(BaseDataset):
         except AssertionError:
             return False
 
-    def _is_valid_chunk(self, x: Example) -> bool:
-        """
-        кроме условий для документа нужно ещё проверить следующие условия:
-        * корректность разбиения на предложения (см. условия в описании функции check_split)
-        * отсутствие символов, которые не удётся токенизировать TODO: проверить, почему это важно
-        """
-        if self._is_valid_example(x):
-            try:
-                check_split(x, window=self.window, fixed_sent_pointers=self.fix_sent_pointers)
-                if all(len(t.token_ids) > 0 for t in x.tokens):
-                    return True
-                else:
-                    return False
-            except AssertionError:
-                return False
-        else:
-            return False
-
     def _clear_example(self, x: Example) -> None:
         x.arcs = []
 
@@ -307,7 +301,7 @@ class DependencyParsingDataset(BaseDataset):
                 t.reset()
 
 
-class SequenceLabelingDataset(BaseDataset):
+class NerAsSequenceLabelingDataset(BaseDataset):
     def __init__(
             self,
             data: List[Example] = None,
@@ -375,24 +369,6 @@ class SequenceLabelingDataset(BaseDataset):
             self.logger.error(e)
             return False
 
-    def _is_valid_chunk(self, x: Example) -> bool:
-        """
-        кроме условий для документа нужно ещё проверить следующие условия:
-        * корректность разбиения на предложения (см. условия в описании функции check_split)
-        * отсутствие символов, которые не удётся токенизировать TODO: проверить, почему это важно
-        """
-        if self._is_valid_example(x):
-            try:
-                check_split(x, window=self.window, fixed_sent_pointers=self.fix_sent_pointers)
-                if all(len(t.token_ids) > 0 for t in x.tokens):
-                    return True
-                else:
-                    return False
-            except AssertionError:
-                return False
-        else:
-            return False
-
     def _preprocess_example(self, x: Example) -> Example:
         x.assign_labels_to_tokens()
         x.chunks = split_example_v2(
@@ -411,6 +387,36 @@ class SequenceLabelingDataset(BaseDataset):
         x.entities = []
         for t in x.tokens:
             t.reset()
+
+
+class NerAsSpanPredictionDataset(NerAsSequenceLabelingDataset):
+    @log
+    def fit(self) -> Dict:
+        labels = set()
+        for x in self.data:
+            for e in x.entities:
+                labels.add(e.label)
+        labels = [NO_LABEL] + sorted(labels)
+        res = {
+            "ner_enc": {x: i for i, x in enumerate(labels)}
+        }
+        return res
+
+    def _preprocess_example(self, x: Example) -> Example:
+        x.chunks = split_example_v2(
+            x,
+            window=self.window,
+            stride=self.stride,
+            lang=self.language,
+            tokens_expression=self.tokens_expression,
+            fix_pointers=self.fix_sent_pointers
+        )
+        for chunk in x.chunks:
+            self._apply_bpe(chunk)
+        return x
+
+    def _clear_example(self, x: Example) -> None:
+        x.entities = []
 
 
 # for chunk in chunks:

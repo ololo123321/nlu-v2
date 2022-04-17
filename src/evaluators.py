@@ -109,7 +109,7 @@ class DependencyParsingEvaluator(BaseEvaluator):
         return Metric(value=metrics, string=json.dumps(metrics, indent=2))
 
 
-class SequenceLabelingEvaluator(BaseEvaluator):
+class NerEvaluator(BaseEvaluator):
     def __init__(self, logger_parent_name: str = None):
         super().__init__(logger_parent_name=logger_parent_name)
 

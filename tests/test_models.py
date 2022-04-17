@@ -1,6 +1,6 @@
 import copy
 
-from src.model.ner import BertForNerAsSequenceLabeling, BertForNerAsDependencyParsing
+from src.model.ner import BertForNerAsSequenceLabeling, BertForNerAsSpanPrediction
 from src.model.coreference_resolution import (
     BertForCoreferenceResolutionMentionPair,
     BertForCoreferenceResolutionMentionRanking,
@@ -179,7 +179,7 @@ def test_bert_for_ner_as_dependency_parsing():
             "num_labels": len(ner_enc),
         }
     }
-    _test_model(BertForNerAsDependencyParsing, config=config, ner_enc=ner_enc, drop_entities=True)
+    _test_model(BertForNerAsSpanPrediction, config=config, ner_enc=ner_enc, drop_entities=True)
 
 
 def test_bert_for_cr_mention_pair():

@@ -307,7 +307,7 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
         return logits, pred_ids, transition_params
 
 
-class BertForNerAsDependencyParsing(BaseModelNER, BaseModelBert):
+class BertForNerAsSpanPrediction(BaseModelNER, BaseModelBert):
     """
     https://arxiv.org/abs/2005.07150
     """
@@ -428,7 +428,6 @@ class BertForNerAsDependencyParsing(BaseModelNER, BaseModelBert):
 
         total_loss = 0.0
         loss_denominator = 0
-        no_entity_label = "O"  # TODO: брать из конфига
 
         gen = batches_gen(
             examples=chunks,
@@ -445,22 +444,22 @@ class BertForNerAsDependencyParsing(BaseModelNER, BaseModelBert):
                 num_tokens = len(x.tokens)
                 num_tokens_squared = num_tokens ** 2
 
-                y_true_i = [no_entity_label] * num_tokens_squared
+                y_true_i = [NO_LABEL] * num_tokens_squared
                 for entity in x.entities:
                     start = entity.tokens[0].index_rel
                     end = entity.tokens[-1].index_rel
                     y_true_i[num_tokens * start + end] = entity.label
                 y_true += y_true_i
 
-                y_pred_i = [no_entity_label] * num_tokens_squared
+                y_pred_i = [NO_LABEL] * num_tokens_squared
                 ner_logits_i = ner_logits[i, :num_tokens, :num_tokens, :]
-                spans_filtered = get_valid_spans(logits=ner_logits_i,  is_flat_ner=False)
+                spans_filtered = get_valid_spans(logits=ner_logits_i,  is_flat_ner=False)  # TODO: is_flat_ner вынести в конфиг
                 for span in spans_filtered:
                     y_pred_i[num_tokens * span.start + span.end] = self.inv_ner_enc[span.label]
                 y_pred += y_pred_i
 
         loss = total_loss / loss_denominator
-        ner_metrics_entity_level = classification_report(y_true=y_true, y_pred=y_pred, trivial_label=no_entity_label)
+        ner_metrics_entity_level = classification_report(y_true=y_true, y_pred=y_pred)
         score = ner_metrics_entity_level["micro"]["f1"]
         performance_info = {
             "loss": loss,
@@ -473,7 +472,7 @@ class BertForNerAsDependencyParsing(BaseModelNER, BaseModelBert):
     def verbose_fn(self, metrics: Dict) -> None:
         self.logger.info("loss:", metrics["loss"])
         self.logger.info("entity-level metrics:")
-        self.logger.info(classification_report_to_string(metrics["metrics"]))
+        self.logger.info("\n" + classification_report_to_string(metrics["metrics"]))
 
     # TODO: реалзиовать случай window > 1
     # TODO: копипаста в начале с BertForFlatNER

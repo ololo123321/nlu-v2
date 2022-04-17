@@ -1,0 +1,31 @@
+# @package _global_
+model_cls:
+  path: src.model.ner.BertForNerAsSpanPrediction
+
+model:
+  ner:
+    no_entity_id: 0
+    use_birnn: false
+    is_flat_ner: ${dataset.is_flat_ner}
+    rnn:
+      num_layers: 1
+      cell_dim: 128
+      dropout: 0.5
+      recurrent_dropout: 0.0
+    biaffine:
+      num_mlp_layers: 1
+      activation: relu
+      head_dim: 128  # TODO: попробовать увеличить
+      dep_dim: 128
+      dropout: 0.33
+      num_labels: null  # заполняется в train.py
+
+dataset:
+  _target_: src.data.datasets.NerAsSpanPredictionDataset
+  is_flat_ner: true
+  read_fn:
+    _target_: hydra.utils.get_static_method
+    path: src.data.io.read_file_v2  # для Collection{3,5}
+
+evaluator:
+  _target_: src.evaluators.NerEvaluator
