@@ -219,7 +219,7 @@ def parse_example(
                 # проверка того, что в файле .txt в спане из файла .ann находится
                 # правильная именная сущность
                 actual_entity_pattern = text[start_index:end_index]
-                if actual_entity_pattern != expected_entity_pattern:
+                if actual_entity_pattern.replace("\n", " ") != expected_entity_pattern:
                     raise EntitySpanError(f"[{filename}]: something is wrong with markup; "
                                           f"expected entity is <bos>{expected_entity_pattern}<eos>, "
                                           f"but got <bos>{actual_entity_pattern}<eos>")
@@ -838,7 +838,12 @@ def to_brat_v2(examples: List[Example], output_dir: str,):
                 end = entity.tokens[-1].span_abs.end
                 assert isinstance(entity.id, str)
                 assert entity.id[0] == "T"
-                line = f"{entity.id}\t{entity.label} {start} {end}\t{entity.text}\n"
+                # чтоб гарантировать отсутствие переноса на новую строку.
+                # при сравнении текста их файла .ann (который обязан быть без символа \n)
+                # со спаном из файла .txt (который может быть каких угодно) символ \n заменяется на пробел:
+                # см. src.data.io.parse_example
+                entity_text = entity.text.replace("\n", " ")
+                line = f"{entity.id}\t{entity.label} {start} {end}\t{entity_text}\n"
                 f.write(line)
 
             # отношения
