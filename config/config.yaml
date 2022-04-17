@@ -67,6 +67,7 @@ inference:
 
 evaluator:
   _target_: ???
+  allow_examples_mismatch: false
 
 # for training
 train_data_path: ???

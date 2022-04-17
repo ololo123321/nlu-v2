@@ -453,7 +453,9 @@ class BertForNerAsSpanPrediction(BaseModelNER, BaseModelBert):
 
                 y_pred_i = [NO_LABEL] * num_tokens_squared
                 ner_logits_i = ner_logits[i, :num_tokens, :num_tokens, :]
-                spans_filtered = get_valid_spans(logits=ner_logits_i,  is_flat_ner=False)  # TODO: is_flat_ner вынести в конфиг
+                spans_filtered = get_valid_spans(
+                    logits=ner_logits_i,  is_flat_ner=self.config["model"]["ner"]["is_flat_ner"]
+                )
                 for span in spans_filtered:
                     y_pred_i[num_tokens * span.start + span.end] = self.inv_ner_enc[span.label]
                 y_pred += y_pred_i
@@ -470,7 +472,7 @@ class BertForNerAsSpanPrediction(BaseModelNER, BaseModelBert):
         return performance_info
 
     def verbose_fn(self, metrics: Dict) -> None:
-        self.logger.info("loss:", metrics["loss"])
+        self.logger.info(f'loss: {metrics["loss"]}')
         self.logger.info("entity-level metrics:")
         self.logger.info("\n" + classification_report_to_string(metrics["metrics"]))
 
@@ -511,7 +513,9 @@ class BertForNerAsSpanPrediction(BaseModelNER, BaseModelBert):
                 num_tokens_i = len(chunk.tokens)
 
                 ner_logits_i = ner_logits[i, :num_tokens_i, :num_tokens_i, :]
-                spans_filtered = get_valid_spans(logits=ner_logits_i, is_flat_ner=False)
+                spans_filtered = get_valid_spans(
+                    logits=ner_logits_i,  is_flat_ner=self.config["model"]["ner"]["is_flat_ner"]
+                )
                 for span in spans_filtered:
                     start_abs = chunk.tokens[span.start].index_abs
                     end_abs = chunk.tokens[span.end].index_abs
@@ -522,7 +526,7 @@ class BertForNerAsSpanPrediction(BaseModelNER, BaseModelBert):
                     id_entity = 'T' + str(len(example.entities))
                     entity = Entity(
                         id=id_entity,
-                        label=span.label,
+                        label=self.inv_ner_enc[span.label],
                         text=text,
                         tokens=tokens,
                     )

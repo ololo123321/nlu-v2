@@ -1,6 +1,7 @@
 import random
 import re
 import logging
+import tqdm
 from datetime import datetime
 from collections import defaultdict
 from functools import wraps
@@ -282,7 +283,7 @@ def parse_conll_metrics(stdout: str, is_blanc: bool) -> Dict:
     return d
 
 
-def batches_gen(examples: List[Example], max_tokens_per_batch: int = 10000, pieces_level: bool = False):
+def batches_gen(examples: List[Example], max_tokens_per_batch: int = 10000, pieces_level: bool = False, disable_progress_bar: bool = False):
     """
     batch_size * max_len_batch <= max_tokens_per_batch
     """
@@ -296,6 +297,7 @@ def batches_gen(examples: List[Example], max_tokens_per_batch: int = 10000, piec
     examples_sorted = sorted(examples, key=lambda example: id2len[example.id])
 
     batch = []
+    pbar = tqdm.tqdm(total=len(examples), disable=disable_progress_bar)
     for x in examples_sorted:
         if id2len[x.id] * (len(batch) + 1) <= max_tokens_per_batch:
             batch.append(x)
@@ -303,8 +305,11 @@ def batches_gen(examples: List[Example], max_tokens_per_batch: int = 10000, piec
             assert len(batch) > 0, f"[{x.id}] too large example: sequence len is {id2len[x.id]}, " \
                 f"which is greater than max_tokens_per_batch: {max_tokens_per_batch}"
             yield batch
+            pbar.update(len(batch))
             batch = [x]
     yield batch
+    pbar.update(len(batch))
+    pbar.close()
 
 
 def log(func):

@@ -22,8 +22,6 @@ def main(cfg: DictConfig):
     ds_pred = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=None)
     ds_pred = ds_pred.load(cfg.predictions_path)
 
-    assert len(ds_gold.data) == len(ds_pred.data)
-
     evaluator = hydra.utils.instantiate(cfg.evaluator)
     metric = evaluator(ds_gold.data, ds_pred.data)
     logger.info(metric.string)

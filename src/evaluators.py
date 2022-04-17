@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Tuple
 from collections import namedtuple
 import tempfile
 import os
@@ -13,40 +13,77 @@ Metric = namedtuple("Metric", ["value", "string"])
 
 
 class BaseEvaluator(LoggerMixin):
-    def __init__(self, logger_parent_name: str = None):
+    def __init__(self, allow_examples_mismatch: bool = False, logger_parent_name: str = None):
+        """
+        allow_examples_mismatch - могут ли различаться множества примеров gold и pred
+        """
         super().__init__(logger_parent_name=logger_parent_name)
+        self.allow_examples_mismatch = allow_examples_mismatch
 
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
         """
         принимает на вход истинные примеры и предикты, выдаёт словарь с метриками
         """
 
+    def _check_examples_number(self, examples_gold: List[Example], examples_pred: List[Example]):
+        n = len(examples_gold)
+        m = len(examples_pred)
+        if self.allow_examples_mismatch:
+            assert n == m, f'{n} != {m}'
+        else:
+            diff = n - m
+            if diff != 0:
+                gold_ids = {x.id for x in examples_gold}
+                pred_ids = {x.id for x in examples_pred}
+                self.logger.warning(
+                    f"number of gold and pred examples mismatch: "
+                    f"num_gold: {n}, num_pred: {m}, num_gold - num_pred: {diff}. "
+                    f"Number of common examples: {len(gold_ids & pred_ids)}"
+                )
+
+    def _get_examples_to_compare(
+            self, examples_gold: List[Example], examples_pred: List[Example]
+    ) -> Tuple[List[Example], List[Example]]:
+        """
+        ensure the same set and order
+        """
+        id2example = {x.id: x for x in examples_pred}
+        examples_gold_sort = []
+        examples_pred_sort = []
+        for x in examples_gold:
+            if x.id in id2example.keys():
+                examples_gold_sort.append(x)
+                examples_pred_sort.append(id2example[x.id])
+            elif not self.allow_examples_mismatch:
+                raise Exception(f'no predictions for example {x.id}')
+        return examples_gold_sort, examples_pred_sort
+
 
 class CoreferenceResolutionEvaluator(BaseEvaluator):
-    def __init__(self, scorer_path: str, logger_parent_name: str = None):
-        super().__init__(logger_parent_name=logger_parent_name)
+    def __init__(self, scorer_path: str, allow_examples_mismatch: bool = False, logger_parent_name: str = None):
+        super().__init__(allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=logger_parent_name)
         self.scorer_path = scorer_path
 
     @log
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
-        self.logger.info("check examples match")
-        assert len(examples_gold) == len(examples_pred)
-        for x, y in zip(examples_gold, examples_pred):
-            assert x.id == y.id
+        self._check_examples_number(examples_gold=examples_gold, examples_pred=examples_pred)
+        examples_gold_sort, examples_pred_sort = self._get_examples_to_compare(
+            examples_gold=examples_gold, examples_pred=examples_pred
+        )
 
         self.logger.info("assigning chain ids...")
-        for x in examples_gold:
+        for x, y in zip(examples_gold_sort, examples_pred_sort):
+            assert x.id == y.id, f'{x.id} != {y.id}'
             assign_chain_ids(x)
-        for x in examples_pred:
-            assign_chain_ids(x)
+            assign_chain_ids(y)
 
         path_gold = tempfile.mktemp()
         self.logger.info(f"saving gold data to {path_gold}")
-        to_conll(examples=examples_gold, path=path_gold)
+        to_conll(examples=examples_gold_sort, path=path_gold)
 
         path_pred = tempfile.mktemp()
         self.logger.info(f"saving pred data to {path_pred}")
-        to_conll(examples=examples_pred, path=path_pred)
+        to_conll(examples=examples_pred_sort, path=path_pred)
 
         self.logger.info("compute metrics...")
         metrics = {}
@@ -67,31 +104,29 @@ class CoreferenceResolutionEvaluator(BaseEvaluator):
         return Metric(value=metrics, string=json.dumps(metrics, indent=2))
 
 
+# TODO: allow_examples_mismatch
 class DependencyParsingEvaluator(BaseEvaluator):
-    def __init__(self, logger_parent_name: str = None):
-        super().__init__(logger_parent_name=logger_parent_name)
+    def __init__(self, allow_examples_mismatch: bool = False, logger_parent_name: str = None):
+        super().__init__(allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=logger_parent_name)
 
     @log
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
         """
         Так как документы уже разделены на предложения, то нужны дополнительные проверки того, есть матчинг 1 к 1
         """
-        id2gold = {}
-        gold_ids = set()
-        for x in examples_gold:
-            for chunk in x.chunks:
-                assert chunk.id not in id2gold.keys(), f'duplicated id: {chunk.id}'
-                id2gold[chunk.id] = chunk
-                gold_ids.add(chunk.id)
+        self._check_examples_number(examples_gold=examples_gold, examples_pred=examples_pred)
+        examples_gold_sort, examples_pred_sort = self._get_examples_to_compare(
+            examples_gold=examples_gold, examples_pred=examples_pred
+        )
         metrics = {
             "las": 0.0,
             "uas": 0.0,
             "support": 0
         }
-        for x in examples_pred:
-            for chunk_pred in x.chunks:
-                assert chunk_pred.id in gold_ids, f'unknown chunk: {chunk_pred.id}'
-                chunk_gold = id2gold[chunk_pred.id]
+        for x, y in zip(examples_gold_sort, examples_pred_sort):
+            assert x.id == y.id, f'{x.id} != {y.id}'
+            for chunk_gold, chunk_pred in zip(x.chunks, y.chunks):
+                assert chunk_gold.id == chunk_pred.id, f'{chunk_gold.id} != {chunk_pred.id}'
                 assert len(chunk_pred.tokens) == len(chunk_gold.tokens), \
                     f'{len(chunk_pred.tokens)} != {len(chunk_gold.tokens)}'
                 for t_pred, t_gold in zip(chunk_pred.tokens, chunk_gold.tokens):
@@ -101,33 +136,29 @@ class DependencyParsingEvaluator(BaseEvaluator):
                         metrics["uas"] += 1
                         if t_pred.rel == t_gold.rel:
                             metrics["las"] += 1
-                gold_ids.remove(chunk_pred.id)
         metrics["las"] /= metrics["support"]
         metrics["uas"] /= metrics["support"]
-        if len(gold_ids) > 0:
-            self.logger.warning(f'No predictions for {len(gold_ids)} sentences (top-10): {sorted(gold_ids)[:10]}')
         return Metric(value=metrics, string=json.dumps(metrics, indent=2))
 
 
 class NerEvaluator(BaseEvaluator):
-    def __init__(self, logger_parent_name: str = None):
-        super().__init__(logger_parent_name=logger_parent_name)
+    def __init__(self, allow_examples_mismatch: bool = False, logger_parent_name: str = None):
+        super().__init__(allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=logger_parent_name)
 
     @log
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
-        # sanity check
-        assert len(examples_gold) == len(examples_pred)
+        self._check_examples_number(examples_gold=examples_gold, examples_pred=examples_pred)
+        examples_gold_sort, examples_pred_sort = self._get_examples_to_compare(
+            examples_gold=examples_gold, examples_pred=examples_pred
+        )
 
-        # ensure the same order of examples
-        id2example = {x.id: x for x in examples_pred}
-        examples_pred_sort = [id2example[x.id] for x in examples_gold]
-
-        for x, y in zip(examples_gold, examples_pred_sort):
-            assert len(x.tokens) == len(y.tokens)
+        for x, y in zip(examples_gold_sort, examples_pred_sort):
+            assert x.id == y.id, f'{x.id} != {y.id}'
+            assert len(x.tokens) == len(y.tokens), f'[{x.id}] {len(x.tokens)} != {len(y.tokens)}'
             x.assign_labels_to_tokens()
             y.assign_labels_to_tokens()
 
-        y_true = self._get_labels(examples_gold)
+        y_true = self._get_labels(examples_gold_sort)
         y_pred = self._get_labels(examples_pred_sort)
 
         y_true_flat = [y for x in y_true for y in x]

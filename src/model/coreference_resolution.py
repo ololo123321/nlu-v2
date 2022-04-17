@@ -1,7 +1,6 @@
 import copy
 from typing import Dict, List
 from collections import defaultdict
-import tqdm
 
 import numpy as np
 
@@ -206,9 +205,10 @@ class BaseBertForCoreferenceResolution(BaseModeCoreferenceResolution, BaseModelB
         gen = batches_gen(
             examples=chunks,
             max_tokens_per_batch=self.config["inference"]["max_tokens_per_batch"],
-            pieces_level=True
+            pieces_level=True,
+            disable_progress_bar=False  # TODO: в конфиг
         )
-        for batch in tqdm.tqdm(gen):
+        for batch in gen:
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.TEST)
             re_labels_pred, re_logits_pred = self.sess.run(
                 [self.labels_pred, self.logits_pred],
@@ -419,10 +419,11 @@ class BertForCoreferenceResolutionMentionPair(BaseBertForCoreferenceResolution):
         gen = batches_gen(
             examples=chunks,
             max_tokens_per_batch=self.config["inference"]["max_tokens_per_batch"],
-            pieces_level=True
+            pieces_level=True,
+            disable_progress_bar=False  # TODO: в конфиг
         )
 
-        for batch in tqdm.tqdm(gen):
+        for batch in gen:
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.VALID)
             total_loss_i, d, re_labels_pred, re_logits_pred = self.sess.run(
                 [self.total_loss, self.loss_denominator, self.labels_pred, self.logits_pred],
@@ -682,9 +683,10 @@ class BertForCoreferenceResolutionMentionRanking(BaseBertForCoreferenceResolutio
         gen = batches_gen(
             examples=chunks,
             max_tokens_per_batch=self.config["inference"]["max_tokens_per_batch"],
-            pieces_level=True
+            pieces_level=True,
+            disable_progress_bar=False  # TODO: в конфиг
         )
-        for batch in tqdm.tqdm(gen):
+        for batch in gen:
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.VALID)
             total_loss_i, d, re_labels_pred, re_logits_pred = self.sess.run(
                 [self.total_loss, self.loss_denominator, self.labels_pred, self.logits_pred],
@@ -841,7 +843,12 @@ class BertForCoreferenceResolutionMentionRankingNewInference(BertForCoreferenceR
                 id2embeddings[x.id] = {}  # (start, end) -> np.array размерности D
                 example_ids.append(x.id)
                 id_to_num_sentences[x.id] = x.tokens[-1].id_sent + 1
-            gen = batches_gen(examples=chunks_batch, max_tokens_per_batch=10000, pieces_level=True)
+            gen = batches_gen(
+                examples=chunks_batch,
+                max_tokens_per_batch=10000, # TODO: в конфиг
+                pieces_level=True,
+                disable_progress_bar=False  # TODO: в конфиг
+            )
             for batch in gen:
                 feed_dict = self._get_feed_dict(batch, mode=ModeKeys.TEST)
                 x_ent_pred = self.sess.run(self.x_ent_pred, feed_dict=feed_dict)  # [num_chunks, E, D]
