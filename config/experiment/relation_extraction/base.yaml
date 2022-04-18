@@ -1,0 +1,33 @@
+# @package _global_
+model_cls:
+  path: src.model.relation_extraction.BertForRelationExtraction
+
+model:
+  re:
+    no_relation_id: 0
+    use_entity_emb: true
+    entity_emb_type: 1  # пока не используется: раньше было два типа, но сейчас решил оставить один. см. старый код
+    use_entity_emb_layer_norm: true
+    entity_emb_dropout: 0.3
+    use_birnn: false
+    rnn:
+      num_layers: 1
+      cell_dim: 128
+      dropout: 0.5
+      recurrent_dropout: 0.0
+    biaffine:
+      num_mlp_layers: 1
+      activation: relu
+      head_dim: 128
+      dep_dim: 128
+      dropout: 0.33
+      num_labels: null  # заполняется в train.py
+
+dataset:
+  _target_: src.data.datasets.RelationExtractionDataset
+  read_fn:
+    _target_: hydra.utils.get_static_method
+    path: src.data.io.read_file_v3
+
+evaluator:
+  _target_: src.evaluators.RelationExtractionEvaluator

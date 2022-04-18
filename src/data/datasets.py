@@ -419,6 +419,61 @@ class NerAsSpanPredictionDataset(NerAsSequenceLabelingDataset):
         x.entities = []
 
 
+class RelationExtractionDataset(BaseDataset):
+    @log
+    def fit(self) -> Dict:
+        labels = set()
+        for x in self.data:
+            for arc in x.arcs:
+                labels.add(arc.label)
+        labels = [NO_LABEL] + sorted(labels)
+        res = {
+            "re_enc": {x: i for i, x in enumerate(labels)}
+        }
+        return res
+
+    def _is_valid_example(self, x: Example) -> bool:
+        """
+        * спаны сущностей согласованы с текстом
+        в данном таске сущности уже даны заранее и могут быть любыми, поэтому не нужно проверять вложенность
+        """
+        try:
+            check_tokens_entities_alignment(x)
+            check_arcs(x, one_child=False, one_parent=False)  # TODO: в конфиг
+            return True
+        except AssertionError as e:
+            self.logger.error(e)
+            return False
+
+    def _is_valid_chunk(self, x: Example) -> bool:
+        if super()._is_valid_chunk(x):
+            try:
+                check_arcs(x, one_child=False, one_parent=False)  # TODO: в конфиг
+                return True
+            except AssertionError as e:
+                self.logger.error(e)
+                return False
+        else:
+            return False
+
+    def _preprocess_example(self, x: Example) -> Example:
+        x.chunks = split_example_v2(
+            x,
+            window=self.window,
+            stride=self.stride,
+            lang=self.language,
+            tokens_expression=self.tokens_expression,
+            fix_pointers=self.fix_sent_pointers
+        )
+        for chunk in x.chunks:
+            self._apply_bpe(chunk)
+            enumerate_entities(chunk)
+        return x
+
+    def _clear_example(self, x: Example) -> None:
+        x.arcs = []
+
+
 # for chunk in chunks:
 #     check_split(chunk, window=self.window, fixed_sent_pointers=self.fix_sent_pointers)
 #     if len(chunk.entities) > 0:

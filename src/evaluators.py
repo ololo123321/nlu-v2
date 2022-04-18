@@ -5,6 +5,7 @@ import os
 import json
 from src.utils import log, LoggerMixin, parse_conll_metrics, classification_report_to_string
 from src.data.io import Example, to_conll
+from src.data.base import NO_LABEL
 from src.data.datasets import assign_chain_ids
 from src.metrics import get_coreferense_resolution_metrics, classification_report, classification_report_ner
 
@@ -192,3 +193,43 @@ class NerEvaluator(BaseEvaluator):
                 labels_i.append(t.label)
             labels.append(labels_i)
         return labels
+
+
+class RelationExtractionEvaluator(BaseEvaluator):
+    def __init__(self, allow_examples_mismatch: bool = False, logger_parent_name: str = None):
+        super().__init__(allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=logger_parent_name)
+
+    @log
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
+        """
+        сущности не нужно было предсказывать -> они совпадают с истинными с точностью до идентификаторов
+        """
+        self._check_examples_number(examples_gold=examples_gold, examples_pred=examples_pred)
+        examples_gold_sort, examples_pred_sort = self._get_examples_to_compare(
+            examples_gold=examples_gold, examples_pred=examples_pred
+        )
+        y_true = []
+        y_pred = []
+        id2index = {}
+
+        def get_flat_labels(x):
+            m = len(id2index)
+            labels_flat = [NO_LABEL] * m ** 2
+            for a in x.arcs:
+                i = id2index[a.head]
+                j = id2index[a.dep]
+                labels_flat[i * m + j] = a.label
+            return labels_flat
+
+        for x, y in zip(examples_gold_sort, examples_pred_sort):
+            assert x.id == y.id, f'{x.id} != {y.id}'
+            assert len(x.entities) == len(y.entities)
+            entities_gold = {(e.id, e.label) for e in x.entities}
+            entities_pred = {(e.id, e.label) for e in y.entities}
+            assert entities_gold == entities_pred
+            id2index = {e.id: i for i, e in enumerate(x.entities)}
+            y_true += get_flat_labels(x)
+            y_pred += get_flat_labels(y)
+        res = classification_report(y_true=y_true, y_pred=y_pred)
+        s = classification_report_to_string(res)
+        return Metric(value=res, string=s)

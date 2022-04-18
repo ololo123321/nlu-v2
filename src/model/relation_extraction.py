@@ -2,14 +2,12 @@ from typing import Dict, List
 
 import numpy as np
 
-from src.data.base import Example, Entity, Arc
-from src.data.postprocessing import get_valid_spans
+from src.data.base import Example, Arc, NO_LABEL, NO_LABEL_ID
 from src.model.base import BaseModelRelationExtraction, BaseModelBert, ModeKeys, BaseModelNerAndRelationExtracion
-from src.model.layers import StackedBiRNN, GraphEncoder, GraphEncoderInputs
-from src.model.utils import upper_triangular, get_entities_representation, get_sent_pairs_to_predict_for
-from src.metrics import classification_report, classification_report_ner
-from src.model.ner import BertForNerAsSequenceLabeling
-from src.utils import get_entity_spans, batches_gen, get_filtered_by_length_chunks, log, tf
+from src.model.layers import GraphEncoder, GraphEncoderInputs
+from src.model.utils import get_entities_representation, get_sent_pairs_to_predict_for
+from src.metrics import classification_report
+from src.utils import batches_gen, log, tf
 
 
 class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
@@ -189,16 +187,13 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
         y_true = []
         y_pred = []
 
-        no_rel_id = self.config["model"]["re"]["no_relation_id"]
-        assert no_rel_id == 0
-        no_rel = "O"  # TODO: вынести в конфиг
-
         loss = 0.0
         loss_denominator = 0
 
-        chunks = get_filtered_by_length_chunks(
-            examples=examples, maxlen=self.config["inference"]["maxlen"], pieces_level=self._is_bpe_level
-        )
+        chunks = []
+        for x in examples:
+            for chunk in x.chunks:
+                chunks.append(chunk)
 
         gen = batches_gen(
             examples=chunks,
@@ -214,7 +209,7 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
                 num_entities_i = len(x.entities)
                 num_entities_i_squared = num_entities_i ** 2
                 loss_denominator += num_entities_i_squared
-                y_true_i = [no_rel] * num_entities_i_squared
+                y_true_i = [NO_LABEL] * num_entities_i_squared
 
                 for arc in x.arcs:
                     assert arc.head_index is not None
@@ -226,14 +221,14 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
                 assert labels_pred_i.shape[0] == num_entities_i, f"{labels_pred_i.shape[0]} != {num_entities_i}"
                 assert labels_pred_i.shape[1] == num_entities_i, f"{labels_pred_i.shape[1]} != {num_entities_i}"
 
-                y_pred_i = [no_rel] * num_entities_i_squared
-                for head_index, dep_index in zip(*np.where(labels_pred_i != no_rel_id)):
+                y_pred_i = [NO_LABEL] * num_entities_i_squared
+                for head_index, dep_index in zip(*np.where(labels_pred_i != NO_LABEL_ID)):
                     id_label = labels_pred_i[head_index, dep_index]
                     y_pred_i[num_entities_i * head_index + dep_index] = self.inv_re_enc[id_label]
                 y_pred += y_pred_i
 
         loss /= loss_denominator
-        re_metrics = classification_report(y_true=y_true, y_pred=y_pred, trivial_label=no_rel)
+        re_metrics = classification_report(y_true=y_true, y_pred=y_pred)
 
         # total
         performance_info = {
@@ -265,12 +260,11 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
             f"but got {len(id2example)} unique ids among {len(examples)} examples"
 
         window = self.config["inference"]["window"]
-        no_rel_id = self.config["model"]["re"]["no_relation_id"]
-        assert no_rel_id == 0
 
-        chunks = get_filtered_by_length_chunks(
-            examples=examples, maxlen=self.config["inference"]["maxlen"], pieces_level=self._is_bpe_level
-        )
+        chunks = []
+        for x in examples:
+            for chunk in x.chunks:
+                chunks.append(chunk)
 
         gen = batches_gen(
             examples=chunks,
@@ -301,7 +295,7 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
                 for id_sent_rel_a, id_sent_rel_b in pairs:
                     id_sent_abs_a = id_sent_rel_a + chunk.tokens[0].id_sent
                     id_sent_abs_b = id_sent_rel_b + chunk.tokens[0].id_sent
-                    for idx_head, idx_dep in zip(*np.where(arcs_pred != no_rel_id)):
+                    for idx_head, idx_dep in zip(*np.where(arcs_pred != NO_LABEL_ID)):
                         head = index2entity[idx_head]
                         dep = index2entity[idx_dep]
                         id_sent_head = head.tokens[0].id_sent
@@ -508,10 +502,6 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BaseModelNerAndRelationE
         y_true = []
         y_pred = []
 
-        no_rel_id = self.config["model"]["re"]["no_relation_id"]
-        assert no_rel_id == 0
-        no_rel = "O"  # TODO: вынести в конфиг
-
         loss = 0.0
         loss_denominator = 0
 
@@ -529,7 +519,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BaseModelNerAndRelationE
                 num_entities_i = len(x.entities)
                 num_entities_i_squared = num_entities_i ** 2
                 loss_denominator += num_entities_i_squared
-                y_true_i = [no_rel] * num_entities_i_squared
+                y_true_i = [NO_LABEL] * num_entities_i_squared
 
                 for arc in x.arcs:
                     assert arc.head_index is not None
@@ -541,14 +531,14 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BaseModelNerAndRelationE
                 assert labels_pred_i.shape[0] == num_entities_i, f"{labels_pred_i.shape[0]} != {num_entities_i}"
                 assert labels_pred_i.shape[1] == num_entities_i, f"{labels_pred_i.shape[1]} != {num_entities_i}"
 
-                y_pred_i = [no_rel] * num_entities_i_squared
-                for head_index, dep_index in zip(*np.where(labels_pred_i != no_rel_id)):
+                y_pred_i = [NO_LABEL] * num_entities_i_squared
+                for head_index, dep_index in zip(*np.where(labels_pred_i != NO_LABEL_ID)):
                     id_label = labels_pred_i[head_index, dep_index]
                     y_pred_i[num_entities_i * head_index + dep_index] = self.inv_re_enc[id_label]
                 y_pred += y_pred_i
 
         loss /= loss_denominator
-        re_metrics = classification_report(y_true=y_true, y_pred=y_pred, trivial_label=no_rel)
+        re_metrics = classification_report(y_true=y_true, y_pred=y_pred)
 
         # total
         performance_info = {
@@ -580,8 +570,6 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BaseModelNerAndRelationE
             f"but got {len(id2example)} unique ids among {len(examples)} examples"
 
         window = self.config["inference"]["window"]
-        no_rel_id = self.config["model"]["re"]["no_relation_id"]
-        assert no_rel_id == 0
 
         gen = batches_gen(
             examples=chunks,
@@ -612,7 +600,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BaseModelNerAndRelationE
                 for id_sent_rel_a, id_sent_rel_b in pairs:
                     id_sent_abs_a = id_sent_rel_a + chunk.tokens[0].id_sent
                     id_sent_abs_b = id_sent_rel_b + chunk.tokens[0].id_sent
-                    for idx_head, idx_dep in zip(*np.where(arcs_pred != no_rel_id)):
+                    for idx_head, idx_dep in zip(*np.where(arcs_pred != NO_LABEL_ID)):
                         head = index2entity[idx_head]
                         dep = index2entity[idx_dep]
                         id_sent_head = head.tokens[0].id_sent
