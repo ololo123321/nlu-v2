@@ -248,6 +248,7 @@ class BaseModel(ABC, LoggerMixin):
                     train_loss.append(loss)
                 except Exception as e:
                     print("current batch:", [x.id for x in chunks_batch])
+                    print("feed_dict:", feed_dict)
                     raise e
 
             # pycharm bug:

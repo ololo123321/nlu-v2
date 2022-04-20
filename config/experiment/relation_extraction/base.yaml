@@ -5,16 +5,19 @@ model_cls:
 model:
   re:
     no_relation_id: 0
-    use_entity_emb: true
-    entity_emb_type: 1  # пока не используется: раньше было два типа, но сейчас решил оставить один. см. старый код
-    use_entity_emb_layer_norm: true
-    entity_emb_dropout: 0.3
     use_birnn: false
     rnn:
       num_layers: 1
       cell_dim: 128
       dropout: 0.5
       recurrent_dropout: 0.0
+    entity_emb:
+      use: false
+      params:
+        dim: 16
+        num_labels: null  # нужно заполнять в train.py, при этом нужно фитить кодировку сущностей
+        merge_mode: concat
+        dropout: 0.3
     biaffine:
       num_mlp_layers: 1
       activation: relu

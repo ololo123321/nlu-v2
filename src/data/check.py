@@ -1,4 +1,4 @@
-from src.data.base import Example
+from src.data.base import Example, LineTypes
 
 
 def check_tokens_entities_alignment(example: Example):
@@ -33,6 +33,57 @@ def check_flat_ner_markup(example: Example):
         for t in entity.tokens:
             actual += _remove_spaces(t.text)
         assert actual == expected, f"[{example.id}] {actual} != {expected}"
+
+
+# TODO: копипаста с src.data.io.simplify
+def check_multi_class_ner_markup(example: Example):
+    """
+    * каждому спану соответствует не более одного уникального лейбла
+    """
+    span2label = {}
+    for entity in example.entities:
+        span = entity.tokens[0].span_abs.start, entity.tokens[-1].span_abs.end
+        if span in span2label:
+            assert span2label[span] == entity.label, f'[{example.id}] span {span} has at least two different labels: ' \
+                                                     f'{span2label[span]} and {entity.label}'
+        else:
+            span2label[span] = entity.label
+
+
+# TODO: копипаста с src.data.io.simplify
+def check_multi_class_re_markup(example: Example):
+    """
+    * каждой паре спанов соответствует не более одного уникального лейбла
+    """
+    id2entity = {e.id: e for e in example.entities}
+    id2event = {event.id: event for event in example.events}
+    span_pair_to_label = {}
+    for arc in example.arcs:
+        # arc.head и arc.dep могут быть T и E
+        if arc.head[0] == LineTypes.ENTITY:
+            head = id2entity[arc.head]
+        elif arc.head[0] == LineTypes.EVENT:
+            event = id2event[arc.head]
+            head = id2entity[event.trigger]
+        else:
+            raise
+
+        if arc.dep[0] == LineTypes.ENTITY:
+            dep = id2entity[arc.dep]
+        elif arc.dep[0] == LineTypes.EVENT:
+            event = id2event[arc.dep]
+            dep = id2entity[event.trigger]
+        else:
+            raise
+
+        key = (head.tokens[0].span_abs.start, head.tokens[-1].span_abs.end), \
+              (dep.tokens[0].span_abs.start, dep.tokens[-1].span_abs.end)
+        if key in span_pair_to_label:
+            assert span_pair_to_label[key] == arc.rel, f'[{example.id}] span pair ' \
+                                                       f'({key[0]}, {key[1]}) has at least two different labels: ' \
+                                                       f'{span_pair_to_label[key]} and {arc.rel}'
+        else:
+            span_pair_to_label[key] = arc.rel
 
 
 def check_arcs(example: Example, one_child: bool = False, one_parent: bool = False):

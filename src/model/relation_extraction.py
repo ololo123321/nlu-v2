@@ -7,7 +7,7 @@ from src.model.base import BaseModelRelationExtraction, BaseModelBert, ModeKeys,
 from src.model.layers import GraphEncoder, GraphEncoderInputs
 from src.model.utils import get_entities_representation, get_sent_pairs_to_predict_for
 from src.metrics import classification_report
-from src.utils import batches_gen, log, tf
+from src.utils import batches_gen, log, tf, classification_report_to_string
 
 
 class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
@@ -126,11 +126,15 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
 
         ner_labels = []
         re_labels = []
+        assigned_relations = set()
 
         # filling
         for i, x in enumerate(examples):
             # entities
             for entity in x.entities:
+                if entity.label not in self.ner_enc.keys():
+                    self.logger.warning(f'[{x.id}] entity {entity.id} has unknown label: {entity.label}')
+                    continue
                 start = entity.tokens[0].index_rel
                 end = entity.tokens[-1].index_rel
                 label = self.ner_enc[entity.label]
@@ -139,10 +143,18 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
             # relations
             if mode != ModeKeys.TEST:
                 for arc in x.arcs:
+                    if arc.rel not in self.re_enc.keys():
+                        self.logger.warning(f'[{x.id}] relation {arc.id} has unknown label: {arc.rel}')
+                        continue
                     assert arc.head_index is not None
                     assert arc.dep_index is not None
+                    idx = i, arc.head_index, arc.dep_index
+                    assert idx not in assigned_relations, \
+                        f'duplicated relation: {idx} (batch, head, dep). ' \
+                        f'This will cause nan loss due to incorrect dense labels construction in with tf.scatter_nd'
                     id_rel = self.re_enc[arc.rel]
-                    re_labels.append((i, arc.head_index, arc.dep_index, id_rel))
+                    re_labels.append((*idx, id_rel))
+                    assigned_relations.add(idx)
 
         if len(ner_labels) == 0:
             ner_labels.append((0, 0, 0, 0))
@@ -237,6 +249,12 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
             "score": re_metrics["micro"]["f1"]
         }
         return performance_info
+
+    def verbose_fn(self, metrics: Dict) -> None:
+        self.logger.info(f'loss: {metrics["loss"]}')
+        self.logger.info(f'score: {metrics["score"]}')
+        self.logger.info("metrics:")
+        self.logger.info('\n' + classification_report_to_string(metrics["metrics"]))
 
     @log
     def predict(self, examples: List[Example], **kwargs) -> None:

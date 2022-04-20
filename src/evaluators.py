@@ -9,7 +9,6 @@ from src.data.base import NO_LABEL
 from src.data.datasets import assign_chain_ids
 from src.metrics import get_coreferense_resolution_metrics, classification_report, classification_report_ner
 
-
 Metric = namedtuple("Metric", ["value", "string"])
 
 
@@ -29,7 +28,7 @@ class BaseEvaluator(LoggerMixin):
     def _check_examples_number(self, examples_gold: List[Example], examples_pred: List[Example]):
         n = len(examples_gold)
         m = len(examples_pred)
-        if self.allow_examples_mismatch:
+        if not self.allow_examples_mismatch:
             assert n == m, f'{n} != {m}'
         else:
             diff = n - m
@@ -97,7 +96,8 @@ class CoreferenceResolutionEvaluator(BaseEvaluator):
             )
             is_blanc = metric == "blanc"
             metrics[metric] = parse_conll_metrics(stdout=stdout, is_blanc=is_blanc)
-        metrics["score"] = (metrics["muc"]["f1"] + metrics["bcub"]["f1"] + metrics["ceafm"]["f1"] + metrics["ceafe"]["f1"]) / 4.0
+        metrics["score"] = (metrics["muc"]["f1"] + metrics["bcub"]["f1"] + metrics["ceafm"]["f1"] + metrics["ceafe"][
+            "f1"]) / 4.0
 
         self.logger.info("removing temp files")
         os.remove(path_gold)
@@ -203,6 +203,7 @@ class RelationExtractionEvaluator(BaseEvaluator):
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
         """
         сущности не нужно было предсказывать -> они совпадают с истинными с точностью до идентификаторов
+        но лучше не завязываться на идекнтификаторы, а рассматривать сущность как спан
         """
         self._check_examples_number(examples_gold=examples_gold, examples_pred=examples_pred)
         examples_gold_sort, examples_pred_sort = self._get_examples_to_compare(
@@ -210,26 +211,34 @@ class RelationExtractionEvaluator(BaseEvaluator):
         )
         y_true = []
         y_pred = []
-        id2index = {}
+        span2index = {}
+
+        def get_entity_span(e):
+            return e.tokens[0].span_abs.start, e.tokens[-1].span_abs.end
 
         def get_flat_labels(x):
-            m = len(id2index)
+            m = len(span2index)
             labels_flat = [NO_LABEL] * m ** 2
+            id2entity = {e.id: e for e in x.entities}
             for a in x.arcs:
-                i = id2index[a.head]
-                j = id2index[a.dep]
-                labels_flat[i * m + j] = a.label
+                i = span2index[get_entity_span(id2entity[a.head])]
+                j = span2index[get_entity_span(id2entity[a.dep])]
+                labels_flat[i * m + j] = a.rel
             return labels_flat
 
         for x, y in zip(examples_gold_sort, examples_pred_sort):
             assert x.id == y.id, f'{x.id} != {y.id}'
-            assert len(x.entities) == len(y.entities)
-            entities_gold = {(e.id, e.label) for e in x.entities}
-            entities_pred = {(e.id, e.label) for e in y.entities}
-            assert entities_gold == entities_pred
-            id2index = {e.id: i for i, e in enumerate(x.entities)}
+            entities_gold = {get_entity_span(e) for e in x.entities}
+            entities_pred = {get_entity_span(e) for e in y.entities}
+            # в случае brat-формата при подгрузке примеров могут поехать спаны сущностей из-за
+            # удаления плохих символов из текста (см. src.data.io.parse_example)
+            # TODO: как-то обрабатывать этот кейс
+            assert entities_gold == entities_pred, f'{entities_gold} != {entities_pred}'
+            for i, e in enumerate(x.entities):
+                span2index[get_entity_span(e)] = i
             y_true += get_flat_labels(x)
             y_pred += get_flat_labels(y)
+            span2index.clear()
         res = classification_report(y_true=y_true, y_pred=y_pred)
-        s = classification_report_to_string(res)
+        s = "\n" + classification_report_to_string(res)
         return Metric(value=res, string=s)

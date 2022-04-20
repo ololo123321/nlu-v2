@@ -23,6 +23,7 @@ def maybe_update_config(cfg, encodings, tokenizer):
             cfg["model"]["ner"]["num_labels"] = len(encodings["ner_enc"])
     if "re" in cfg["model"]:
         cfg["model"]["re"]["biaffine"]["num_labels"] = len(encodings["re_enc"])
+        cfg["model"]["re"]["entity_emb"]["params"]["num_labels"] = len(encodings["ner_enc"])
 
 
 @hydra.main(config_path="../config", config_name="config")

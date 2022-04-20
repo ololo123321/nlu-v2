@@ -6,7 +6,13 @@ import tqdm
 from bert.tokenization import FullTokenizer
 
 from src.data.io import load_collection, simplify, read_file_v3, from_conllu, to_conllu, to_brat_v2
-from src.data.check import check_tokens_entities_alignment, check_arcs, check_split
+from src.data.check import (
+    check_tokens_entities_alignment,
+    check_arcs,
+    check_split,
+    check_multi_class_ner_markup,
+    check_multi_class_re_markup
+)
 from src.data.preprocessing import split_example_v2, enumerate_entities, get_connected_components
 from src.data.base import Languages, Example, NO_LABEL
 from src.utils import LoggerMixin, log
@@ -352,6 +358,7 @@ class NerAsSequenceLabelingDataset(BaseDataset):
         """
         try:
             check_tokens_entities_alignment(x)
+            check_multi_class_ner_markup(x)
             if self.is_flat_ner:
                 entities_sorted = sorted(
                     x.entities, key=lambda e: (e.tokens[0].span_abs.start, e.tokens[-1].span_abs.end)
@@ -370,6 +377,7 @@ class NerAsSequenceLabelingDataset(BaseDataset):
             return False
 
     def _preprocess_example(self, x: Example) -> Example:
+        simplify(x)
         x.assign_labels_to_tokens()
         x.chunks = split_example_v2(
             x,
@@ -403,6 +411,7 @@ class NerAsSpanPredictionDataset(NerAsSequenceLabelingDataset):
         return res
 
     def _preprocess_example(self, x: Example) -> Example:
+        simplify(x)
         x.chunks = split_example_v2(
             x,
             window=self.window,
@@ -422,13 +431,18 @@ class NerAsSpanPredictionDataset(NerAsSequenceLabelingDataset):
 class RelationExtractionDataset(BaseDataset):
     @log
     def fit(self) -> Dict:
-        labels = set()
+        labels_re = set()
+        labels_ner = set()
         for x in self.data:
             for arc in x.arcs:
-                labels.add(arc.label)
-        labels = [NO_LABEL] + sorted(labels)
+                labels_re.add(arc.rel)
+            for e in x.entities:
+                labels_ner.add(e.label)
+        labels_re = [NO_LABEL] + sorted(labels_re)
+        labels_ner = [NO_LABEL] + sorted(labels_ner)
         res = {
-            "re_enc": {x: i for i, x in enumerate(labels)}
+            "re_enc": {x: i for i, x in enumerate(labels_re)},
+            "ner_enc": {x: i for i, x in enumerate(labels_ner)}
         }
         return res
 
@@ -439,6 +453,8 @@ class RelationExtractionDataset(BaseDataset):
         """
         try:
             check_tokens_entities_alignment(x)
+            check_multi_class_ner_markup(x)
+            check_multi_class_re_markup(x)
             check_arcs(x, one_child=False, one_parent=False)  # TODO: в конфиг
             return True
         except AssertionError as e:
@@ -457,6 +473,7 @@ class RelationExtractionDataset(BaseDataset):
             return False
 
     def _preprocess_example(self, x: Example) -> Example:
+        x = simplify(x)
         x.chunks = split_example_v2(
             x,
             window=self.window,

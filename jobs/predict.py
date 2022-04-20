@@ -39,9 +39,10 @@ def main(overrides: DictConfig):
 
     # 1. подгрузка примеров
     # 2. очистка примеров от лишней разметки, если таковая есть
-    # 3. проверка на согласованность разметки и текста
-    # 4. препроцессинг
-    # 5. фильтрация на уровне кусков. Фильтрации на уровне документов не будет,
+    # 3. удаление косячных примеров: должно гарантироваться, что на каждом примере можно сделать инференс
+    # 4. проверка на согласованность разметки и текста
+    # 5. препроцессинг
+    # 6. фильтрация на уровне кусков. Фильтрации на уровне документов не будет,
     #    потому что в случае косяков на уровне документов вылезла бы AssertionError на шаге 3.
     #    Но всё равно лучше явно написать doc_level=False, чтоб было понятней.
     # TODO: WARNING: примеры уже разбиты на кусочки (syntagrus) -> фильтруем какие-то кусочки ->
@@ -50,9 +51,10 @@ def main(overrides: DictConfig):
     ds = ds \
         .load(cfg.test_data_path, limit=cfg.num_examples_test) \
         .clear() \
+        .filter(doc_level=True, chunk_level=False) \
         .check() \
         .preprocess() \
-        .filter(doc_level=False)
+        .filter(doc_level=False, chunk_level=True)
 
     logger.info("loading encodings")
     encodings_path = os.path.join(cfg.model_dir, "encodings.json")
