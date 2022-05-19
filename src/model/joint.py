@@ -4,8 +4,9 @@ import numpy as np
 
 from src.data.base import Example, Entity, Arc, NO_LABEL, NO_LABEL_ID
 from src.model.base import ModeKeys
-from src.model.utils import get_sent_pairs_to_predict_for
+from src.model.utils import get_sent_pairs_to_predict_for, get_batched_coords_from_labels
 from src.model.relation_extraction import BertForRelationExtraction
+from src.model.layers import GraphEncoderInputs
 from src.metrics import classification_report, classification_report_ner
 from src.utils import batches_gen, log, tf, classification_report_to_string, get_entity_spans
 
@@ -25,9 +26,6 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
     def __init__(self, sess: tf.Session = None, config: Dict = None, ner_enc: Dict = None, re_enc: Dict = None):
         super().__init__(sess=sess, config=config, re_enc=re_enc)
         self.ner_enc = ner_enc
-
-        # PLACEHOLDERS
-        self.ner_labels_sequence_ph = None
 
         # TENSORS
         # * logits
@@ -101,9 +99,29 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
 
         return logits, pred_ids, transition_params
 
-    def _set_placeholders(self):
-        super()._set_placeholders()
-        self.ner_labels_sequence_ph = tf.placeholder(dtype=tf.int32, shape=[None, None], name="ner_labels")
+    def _build_re_head_fn(self,  bert_out, ner_labels):
+        """
+        ner_labels - [N, T] of type tf.int32 (в родительской версии были [num_entities_total, 4])
+        """
+        x = self._get_token_level_embeddings(bert_out=bert_out)  # [batch_size, num_tokens, d_bert]
+
+        # вывод координат первых токенов сущностей
+        # TODO: start_ids писать в конфиг при train
+        start_ids = tf.constant(self.config["model"]["ner"]["start_ids"], dtype=tf.int32)
+        coords, num_entities = get_batched_coords_from_labels(
+            labels_2d=ner_labels, values=start_ids, sequence_len=self.num_tokens_ph
+        )
+
+        # tokens -> entities
+        x = tf.gather_nd(x, coords)  # [batch_size, num_entities_max, bert_bim or cell_dim * 2]
+
+        # entity pairs scores
+        inputs = GraphEncoderInputs(head=x, dep=x)
+        logits = self.entity_pairs_enc(inputs, training=self.training_ph)  # [batch_size, num_ent, num_ent, num_rel]
+        return logits, num_entities
+
+    def _set_ner_labels_ph(self):
+        self.ner_labels_ph = tf.placeholder(tf.int32, shape=[None, None], name="ner_labels")
 
     def _set_layers(self):
         """
@@ -123,9 +141,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         self.loss_re, _, _, _ = super()._get_re_loss()
 
         # joint
-        w_ner = 0.5  # TODO: в конфиг
-        w_re = 0.5  # TODO: в конфиг
-        self.loss = self.loss_ner * w_ner + self.loss_re * w_re
+        self.loss = self.loss_ner * self.config["train"]["loss_coef_ner"] + self.loss_re * self.config["train"]["loss_coef_re"]
 
     # TODO: копипаста из BertForNerAsSequenceLabeling
     def _get_ner_loss(self):
@@ -156,28 +172,63 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
             loss_denominator = total_num_tokens
         return loss, total_loss, loss_denominator
 
-    # TODO: копипаста из BertForNerAsSequenceLabeling
     def _get_feed_dict(self, examples: List[Example], mode: str) -> Dict:
-        """
-        ner лейблы в формате, необходимом для обучения ner головы
-        """
-        d = super()._get_feed_dict(examples=examples, mode=mode)
+        assert self.ner_enc is not None
+        assert self.re_enc is not None
 
-        if mode != ModeKeys.TEST:
-            ner_labels = []
-            for x in examples:
-                ner_labels_i = []
-                for t in x.tokens:
-                    id_label = self.ner_enc[t.label]
-                    ner_labels_i.append(id_label)  # ner решается на уровне токенов!
-                ner_labels.append(ner_labels_i)
+        bert_inputs = self._get_bert_input_for_feed_dict(examples)
 
-            num_tokens_max = max(d[self.num_tokens_ph].num_tokens)
-            pad_label_id = self.config["model"]["ner"]["no_entity_id"]
-            for i in range(len(examples)):
-                ner_labels[i] += [pad_label_id] * (num_tokens_max - d[self.num_tokens_ph].num_tokens[i])
+        d = {
+            self.input_ids_ph: bert_inputs.input_ids,
+            self.input_mask_ph: bert_inputs.input_mask,
+            self.segment_ids_ph: bert_inputs.segment_ids,
+            self.first_pieces_coords_ph: bert_inputs.first_pieces_coords,
+            self.num_pieces_ph: bert_inputs.num_pieces,
+            self.num_tokens_ph: bert_inputs.num_tokens,
+            self.training_ph: mode == ModeKeys.TRAIN
+        }
+        if mode == ModeKeys.TEST:
+            return d
 
-            d[self.ner_labels_sequence_ph] = ner_labels
+        # add labels in case of train or valid mode
+        ner_labels = []
+        re_labels = []
+        assigned_relations = set()
+        for i, x in enumerate(examples):
+            # entities
+            ner_labels_i = []
+            for t in x.tokens:
+                id_label = self.ner_enc[t.label]
+                ner_labels_i.append(id_label)  # ner решается на уровне токенов!
+            ner_labels.append(ner_labels_i)
+
+            # relations
+            for arc in x.arcs:
+                if arc.rel not in self.re_enc.keys():
+                    self.logger.warning(f'[{x.id}] relation {arc.id} has unknown label: {arc.rel}')
+                    continue
+                assert arc.head_index is not None
+                assert arc.dep_index is not None
+                idx = i, arc.head_index, arc.dep_index
+                assert idx not in assigned_relations, \
+                    f'duplicated relation: {idx} (batch, head, dep). ' \
+                    f'This will cause nan loss due to incorrect dense labels construction in with tf.scatter_nd'
+                id_rel = self.re_enc[arc.rel]
+                re_labels.append((*idx, id_rel))
+                assigned_relations.add(idx)
+
+        # padding
+        num_tokens_max = max(bert_inputs.num_tokens)
+        pad_label_id = self.config["model"]["ner"]["no_entity_id"]
+        for i in range(len(examples)):
+            ner_labels[i] += [pad_label_id] * (num_tokens_max - bert_inputs.num_tokens[i])
+
+        if len(re_labels) == 0:
+            re_labels.append((0, 0, 0, 0))
+
+        d[self.ner_labels_ph] = ner_labels
+        d[self.re_labels_ph] = re_labels
+
         return d
 
     @log

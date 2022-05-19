@@ -438,6 +438,8 @@ class RelationExtractionDataset(BaseDataset):
                 labels_re.add(arc.rel)
             for e in x.entities:
                 labels_ner.add(e.label)
+        self.logger.info(f"number of different relations: {len(labels_re)}")
+        self.logger.info(f"number of different entities: {len(labels_ner)}")
         labels_re = [NO_LABEL] + sorted(labels_re)
         labels_ner = [NO_LABEL] + sorted(labels_ner)
         res = {
@@ -489,6 +491,99 @@ class RelationExtractionDataset(BaseDataset):
 
     def _clear_example(self, x: Example) -> None:
         x.arcs = []
+
+
+class NerAsSequenceLabelingAndRelationExtractionDataset(BaseDataset):
+    @log
+    def fit(self) -> Dict:
+        labels_re = set()
+        labels_ner = set()
+        for x in self.data:
+            for arc in x.arcs:
+                labels_re.add(arc.rel)
+            for t in x.tokens:
+                if t.label != NO_LABEL:
+                    labels_ner.add(t.label)
+        self.logger.info(f"number of different relations: {len(labels_re)}")
+        self.logger.info(f"number of different ner labels (wo \"O\"): {len(labels_ner)}")
+        labels_re = [NO_LABEL] + sorted(labels_re)
+        labels_ner = [NO_LABEL] + sorted(labels_ner)
+        res = {
+            "re_enc": {x: i for i, x in enumerate(labels_re)},
+            "ner_enc": {x: i for i, x in enumerate(labels_ner)},
+        }
+        # start_ids пока пишутся в train.py (maybe_update_config)
+        return res
+
+    def _preprocess_example(self, x: Example) -> Example:
+        """
+        добавлено assign_labels_to_tokens после simplify
+        """
+        x = simplify(x)
+        x.assign_labels_to_tokens()
+        x.chunks = split_example_v2(
+            x,
+            window=self.window,
+            stride=self.stride,
+            lang=self.language,
+            tokens_expression=self.tokens_expression,
+            fix_pointers=self.fix_sent_pointers
+        )
+        for chunk in x.chunks:
+            self._apply_bpe(chunk)
+            enumerate_entities(chunk)
+        return x
+
+    def _is_valid_example(self, x: Example) -> bool:
+        if super()._is_valid_example(x):
+            return self._is_valid_example_ner(x)
+        else:
+            return False
+
+    # TODO: копипаста из RelationExtractionDataset._is_valid_chunk
+    def _is_valid_chunk(self, x: Example) -> bool:
+        if super()._is_valid_chunk(x):
+            try:
+                check_arcs(x, one_child=False, one_parent=False)  # TODO: в конфиг
+                return True
+            except AssertionError as e:
+                self.logger.error(e)
+                return False
+        else:
+            return False
+
+    def _clear_example(self, x: Example) -> None:
+        x.arcs = []
+        x.entities = []
+        for t in x.tokens:
+            t.reset()
+
+    # TODO: копипаста из NerAsSequenceLabelingDataset._is_valid_example
+    def _is_valid_example_ner(self, x: Example) -> bool:
+        """
+        * спаны сущностей согласованы с текстом
+        * если плоский нер, то не должно быть вложенных сущностей
+        """
+        is_flat_ner = True
+        try:
+            check_tokens_entities_alignment(x)
+            check_multi_class_ner_markup(x)
+            if is_flat_ner:
+                entities_sorted = sorted(
+                    x.entities, key=lambda e: (e.tokens[0].span_abs.start, e.tokens[-1].span_abs.end)
+                )
+                for i in range(len(entities_sorted) - 1):
+                    e1 = entities_sorted[i]
+                    e2 = entities_sorted[i + 1]
+                    if e1.tokens[-1].span_abs.end > e2.tokens[0].span_abs.start:
+                        self.logger.warning(f'[{x.id}] overlapping entities: {e1.id} and {e2.id}')
+                        return False
+                return True
+            else:
+                return True
+        except AssertionError as e:
+            self.logger.error(e)
+            return False
 
 
 # for chunk in chunks:

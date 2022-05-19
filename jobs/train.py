@@ -21,6 +21,7 @@ def maybe_update_config(cfg, encodings, tokenizer):
             cfg["model"]["ner"]["biaffine"]["num_labels"] = len(encodings["ner_enc"])
         else:  # ner as sequence labeling
             cfg["model"]["ner"]["num_labels"] = len(encodings["ner_enc"])
+            cfg["model"]["ner"]["start_ids"] = [v for k, v in encodings["ner_enc"].items() if k[0] == "B"]  # TODO: мб это не здесь лучше делать?
     if "re" in cfg["model"]:
         cfg["model"]["re"]["biaffine"]["num_labels"] = len(encodings["re_enc"])
         cfg["model"]["re"]["entity_emb"]["params"]["num_labels"] = len(encodings["ner_enc"])

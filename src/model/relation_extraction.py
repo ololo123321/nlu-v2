@@ -48,8 +48,14 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
 
     def _set_placeholders(self):
         super()._set_placeholders()
-        self.ner_labels_ph = tf.placeholder(tf.int32, shape=[None, 4], name="ner_labels")  # [i, start, end, label]
+        self._set_ner_labels_ph()
         self.re_labels_ph = tf.placeholder(tf.int32, shape=[None, 4], name="re_labels")  # [i, id_head, id_dep, label]
+
+    def _set_ner_labels_ph(self):
+        """
+        в joint другая размерность
+        """
+        self.ner_labels_ph = tf.placeholder(tf.int32, shape=[None, 4], name="ner_labels")  # [i, start, end, label]
 
     def _set_layers(self):
         """
@@ -77,14 +83,15 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
 
     def _build_re_head_fn(self,  bert_out, ner_labels):
         """
-        ner_labels - для общностьи с joint аналогом
+        ner_labels - для общностьи с joint аналогом.
+                     [num_entities_total, 4], ner_labels[i] = (id_example, start, end, label)
         """
         x = self._get_token_level_embeddings(bert_out=bert_out)  # [batch_size, num_tokens, d_bert]
 
         # entity embeddings
         entity_emb_layer = self._entity_emb_fn if self.config["model"]["re"]["entity_emb"]["use"] else None
         x, num_entities = get_entities_representation(
-            x=x, ner_labels=self.ner_labels_ph, sparse_labels=True, ff_attn=None, entity_emb_layer=entity_emb_layer
+            x=x, ner_labels=ner_labels, sparse_labels=True, ff_attn=None, entity_emb_layer=entity_emb_layer
         )  # [batch_size, num_ent, D * 3]
 
         inputs = GraphEncoderInputs(head=x, dep=x)
