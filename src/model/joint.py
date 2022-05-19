@@ -28,8 +28,6 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         self.ner_enc = ner_enc
 
         # TENSORS
-        # * logits
-        self.re_logits_train = None
         # * labels
         self.re_labels_valid = None
         self.re_labels_test = None
@@ -60,7 +58,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
     # TODO: копипаста из BertForNerAsSequenceLabeling
     def _build_ner_head(self):
         self.ner_logits_train, _, self.transition_params = self._build_ner_head_fn(bert_out=self.bert_out_train)
-        _, self.ner_preds_inference, _ = self._build_ner_head_fn(bert_out=self.bert_out_pred)
+        _, self.ner_labels_pred, _ = self._build_ner_head_fn(bert_out=self.bert_out_pred)
 
     def _build_re_head(self):
         """
@@ -94,9 +92,8 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
                 transition_params = tf.get_variable("transition_params", [num_labels, num_labels], dtype=tf.float32)
             pred_ids, _ = tf.contrib.crf.crf_decode(logits, transition_params, self.num_tokens_ph)
         else:
-            pred_ids = tf.argmax(logits, axis=-1)
+            pred_ids = tf.argmax(logits, axis=-1, output_type=tf.int32)  # default is int64
             transition_params = None
-
         return logits, pred_ids, transition_params
 
     def _build_re_head_fn(self,  bert_out, ner_labels):
@@ -106,8 +103,8 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         x = self._get_token_level_embeddings(bert_out=bert_out)  # [batch_size, num_tokens, d_bert]
 
         # вывод координат первых токенов сущностей
-        # TODO: start_ids писать в конфиг при train
-        start_ids = tf.constant(self.config["model"]["ner"]["start_ids"], dtype=tf.int32)
+        # list на случай, если config - DictConfig, а не  dict
+        start_ids = tf.constant(list(self.config["model"]["ner"]["start_ids"]), dtype=tf.int32)
         coords, num_entities = get_batched_coords_from_labels(
             labels_2d=ner_labels, values=start_ids, sequence_len=self.num_tokens_ph
         )
@@ -138,7 +135,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         self.loss_ner, self.total_loss_ner, self.loss_denominator_ner = self._get_ner_loss()
 
         # re
-        self.loss_re, _, _, _ = super()._get_re_loss()
+        self.loss_re, self.total_loss_re, _, _ = super()._get_re_loss()
 
         # joint
         self.loss = self.loss_ner * self.config["train"]["loss_coef_ner"] + self.loss_re * self.config["train"]["loss_coef_re"]
@@ -198,7 +195,9 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
             # entities
             ner_labels_i = []
             for t in x.tokens:
-                id_label = self.ner_enc[t.label]
+                id_label = self.ner_enc.get(t.label, NO_LABEL_ID)
+                if t.label not in self.ner_enc:
+                    self.logger.warning(f'[{x.id}] No label {t.label} in ner_enc. Return NO_LABEL_ID={NO_LABEL_ID}')
                 ner_labels_i.append(id_label)  # ner решается на уровне токенов!
             ner_labels.append(ner_labels_i)
 
@@ -213,7 +212,9 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
                 assert idx not in assigned_relations, \
                     f'duplicated relation: {idx} (batch, head, dep). ' \
                     f'This will cause nan loss due to incorrect dense labels construction in with tf.scatter_nd'
-                id_rel = self.re_enc[arc.rel]
+                id_rel = self.re_enc.get(arc.rel, NO_LABEL_ID)
+                if arc.rel not in self.re_enc:
+                    self.logger.warning(f'[{x.id}] No label {arc.rel} in re_enc. Return NO_LABEL_ID={NO_LABEL_ID}')
                 re_labels.append((*idx, id_rel))
                 assigned_relations.add(idx)
 
@@ -282,7 +283,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
                 self.total_loss_ner,
                 self.loss_denominator_ner,
                 self.ner_labels_pred,
-                self.re_labels_test
+                self.re_labels_valid
             ], feed_dict=feed_dict)
 
             loss_re += loss_re_i
@@ -302,7 +303,10 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
                 y_pred_flat += y_pred_i
 
                 # re
-                num_entities_i = len(x.entities)
+                # num_entities_i = len(x.entities)
+                # TODO: это тоже не совсем выход, потому что лейблы отношений проставляются в зависимости от
+                #  {head, dep}.index, которые выводятся исходя из исходных сущностей примера: их числа и порядка
+                num_entities_i = sum(map(self._is_valid_entity, x.entities))
                 num_entities_i_squared = num_entities_i ** 2
                 loss_denominator_re += num_entities_i_squared
                 y_true_i = [NO_LABEL] * num_entities_i_squared
@@ -326,7 +330,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         # ner
         loss_ner /= loss_denominator_ner
         ner_metrics = {
-            "entity_level": classification_report_ner(y_true=y_true, y_pred=y_pred),
+            "entity_level": classification_report_ner(y_true=y_true_ner, y_pred=y_pred_ner),
             "token_level": classification_report(y_true=y_true_flat, y_pred=y_pred_flat)
         }
 
@@ -334,13 +338,22 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         loss_re /= loss_denominator_re
         re_metrics = classification_report(y_true=y_true, y_pred=y_pred)
 
-        # TODO: посчитать итоговый loss
-        # TODO: записать куда-то loss_ner, loss_re
-        # TODO: если какой-то таск выключен, то в score сделать его вес нулевым
         # total
+        loss = loss_ner * self.config["train"]["loss_coef_ner"] + loss_re * self.config["train"]["loss_coef_re"]
+        if self.config["train"]["loss_coef_ner"] == 0.0:
+            w_ner = 0
+        else:
+            w_ner = 0.5
+        if self.config["train"]["loss_coef_re"] == 0.0:
+            w_re = 0
+        else:
+            w_re = 0.5
+        score = ner_metrics["entity_level"]["micro"]["f1"] * w_ner + re_metrics["micro"]["f1"] * w_re
         performance_info = {
             "loss": loss,
-            "score": ner_metrics["entity_level"]["micro"]["f1"] * 0.5 + re_metrics["micro"]["f1"] * 0.5,
+            "loss_ner": loss_ner,
+            "loss_re": loss_re,
+            "score": score,
             "metrics": {
                 "ner": ner_metrics,
                 "re": re_metrics
@@ -455,9 +468,23 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         self.logger.info(f'loss: {metrics["loss"]}')
         self.logger.info(f'score: {metrics["score"]}')
         self.logger.info("ner (entity-level):")
-        self.logger.info('\n' + classification_report_to_string(metrics["ner"]["metrics"]["entity_level"]))
+        self.logger.info('\n' + classification_report_to_string(metrics["metrics"]["ner"]["entity_level"]))
         self.logger.info("re:")
-        self.logger.info('\n' + classification_report_to_string(metrics["re"]["metrics"]))
+        self.logger.info('\n' + classification_report_to_string(metrics["metrics"]["re"]))
+
+    def _is_valid_entity(self, entity: Entity) -> bool:
+        """
+        * отношения строятся над парами сущностей
+        * число таких пар - n^2, где n - число таких лейблов l в последовательности лейблов токенов,
+          что l in self.config["model"]["ner]["start_ids"]
+        * если какие-то l отсутстовали в обучении, то их нет в ner_enc. в таком случае на его место ставится лейбл NO_LABEL
+        * таким образом, если в валидационном примере есть новая сущность (или настолько редкая для обучения, что её не стали добавлять в ner_enc),
+          то не будет гарантироваться биекция между следующими списками:
+          - [ner_enc[e.tokens[0].label] for e in x.entities]
+          - [i for i in label_ids if i in start_ids]
+        * решение: на валидации отильтровать сущности, которых нет в обучении
+        """
+        return entity.tokens[0].label in self.ner_enc.keys()
 
 
 class BertForNerAsDependencyParsingAndRelationExtraction:

@@ -87,3 +87,4 @@ num_examples_test: -1
 # for evaluation
 gold_data_path: ???
 metrics_path: null
+filter_gold_examples: false

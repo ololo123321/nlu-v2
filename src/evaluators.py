@@ -1,13 +1,18 @@
-from typing import List, Tuple
+from typing import List, Tuple, Set
 from collections import namedtuple
 import tempfile
 import os
 import json
 from src.utils import log, LoggerMixin, parse_conll_metrics, classification_report_to_string
 from src.data.io import Example, to_conll
-from src.data.base import NO_LABEL
+from src.data.base import NO_LABEL, Entity
 from src.data.datasets import assign_chain_ids
-from src.metrics import get_coreferense_resolution_metrics, classification_report, classification_report_ner
+from src.metrics import (
+    get_coreferense_resolution_metrics,
+    classification_report,
+    classification_report_ner,
+    classification_report_set
+)
 
 Metric = namedtuple("Metric", ["value", "string"])
 
@@ -244,29 +249,80 @@ class RelationExtractionEvaluator(BaseEvaluator):
         return Metric(value=res, string=s)
 
 
-class NerAndRelationExtractionEvaluator(BaseEvaluator):
+class NerAndRelationExtractionEvaluator(NerEvaluator):
     def __init__(self, allow_examples_mismatch: bool = False, logger_parent_name: str = None):
         super().__init__(allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=logger_parent_name)
-        self.evaluator_ner = NerEvaluator(
-            allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=self.__class__.__name__
-        )
-        self.evaluator_re = RelationExtractionEvaluator(
-            allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=self.__class__.__name__
-        )
 
     @log
     def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
-        metric_ner = self.evaluator_ner(examples_gold=examples_gold, examples_pred=examples_pred)
-        metric_re = self.evaluator_re(examples_gold=examples_gold, examples_pred=examples_pred)
-        v = {
-            "ner": metric_ner.value,
-            "re": metric_re.value
+        self._check_examples_number(examples_gold=examples_gold, examples_pred=examples_pred)
+        examples_gold_sort, examples_pred_sort = self._get_examples_to_compare(
+            examples_gold=examples_gold, examples_pred=examples_pred
+        )
+
+        gold_triples = set()  # (head, dep, rel), head, dep = (start, end, label)
+        pred_triples = set()
+        for x, y in zip(examples_gold_sort, examples_pred_sort):
+            assert x.id == y.id, f'{x.id} != {y.id}'
+            assert len(x.tokens) == len(y.tokens), f'[{x.id}] {len(x.tokens)} != {len(y.tokens)}'
+            x.assign_labels_to_tokens()
+            y.assign_labels_to_tokens()
+            for t in self._get_triples(x):
+                gold_triples.add((x.id, t))
+            for t in self._get_triples(y):
+                pred_triples.add((x.id, t))
+
+        y_true = self._get_labels(examples_gold_sort)
+        y_pred = self._get_labels(examples_pred_sort)
+
+        y_true_flat = [y for x in y_true for y in x]
+        y_pred_flat = [y for x in y_pred for y in x]
+
+        # ner
+        ner_metrics = {
+            "entity_level": classification_report_ner(y_true=y_true, y_pred=y_pred),
+            "token_level": classification_report(y_true=y_true_flat, y_pred=y_pred_flat)
         }
-        s = '\n'
-        s += 'ner:\n'
-        s += metric_ner.string + '\n'
-        s += '=' + '\n'
-        s += 're:\n'
-        s += metric_re.string
-        metric_joint = Metric(value=v, string=s)
-        return metric_joint
+
+        # e2e
+        e2e_metrics = classification_report_set(y_true=gold_triples, y_pred=pred_triples)
+
+        # result
+        res = {
+            "ner": ner_metrics,
+            "e2e": e2e_metrics
+        }
+
+        # string
+        s = ''
+        s += '\n'
+        s += 'entity level:'
+        s += '\n\n'
+        s += classification_report_to_string(res["ner"]["entity_level"])
+        s += '\n'
+        s += '=' * 80
+        s += '\n'
+        s += 'token level:'
+        s += '\n\n'
+        s += classification_report_to_string(res["ner"]["token_level"])
+        s += '\n'
+        s += '=' * 80
+        s += '\n'
+        s += 'end-to-end:'
+        s += '\n\n'
+        s += classification_report_to_string({"e2e": res["e2e"]})
+        return Metric(value=res, string=s)
+
+    def _get_triples(self, x: Example) -> Set[Tuple[Tuple, Tuple, str]]:
+        res = set()
+        id2entity = {e.id: e for e in x.entities}
+        for arc in x.arcs:
+            head = self._entity2key(id2entity[arc.head])
+            dep = self._entity2key(id2entity[arc.dep])
+            item = head, dep, arc.rel
+            res.add(item)
+        return res
+
+    @staticmethod
+    def _entity2key(entity: Entity) -> Tuple[int, int, str]:
+        return entity.tokens[0].span_abs.start, entity.tokens[-1].span_abs.end, entity.label

@@ -17,6 +17,13 @@ def main(cfg: DictConfig):
     logger.info("loading gold data...")
     ds_gold = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=None)
     ds_gold = ds_gold.load(cfg.gold_data_path)
+    if cfg.filter_gold_examples:
+        logger.warning(
+            "filter_gold_examples=True, so gold and pred examples might mismatch. "
+            "Explicitly set evaluator.allow_examples_mismatch=True"
+        )
+        ds_gold.filter(doc_level=True, chunk_level=False)
+        cfg.evaluator.allow_examples_mismatch = True
 
     logger.info("loading predictions...")
     ds_pred = hydra.utils.instantiate(cfg.dataset, data=None, tokenizer=None)

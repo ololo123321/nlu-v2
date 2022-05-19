@@ -161,7 +161,8 @@ class BaseDataset(ABC, LoggerMixin):
                     return True
                 else:
                     return False
-            except AssertionError:
+            except AssertionError as e:
+                self.logger.error(e)
                 return False
         else:
             return False
@@ -512,7 +513,6 @@ class NerAsSequenceLabelingAndRelationExtractionDataset(BaseDataset):
             "re_enc": {x: i for i, x in enumerate(labels_re)},
             "ner_enc": {x: i for i, x in enumerate(labels_ner)},
         }
-        # start_ids пока пишутся в train.py (maybe_update_config)
         return res
 
     def _preprocess_example(self, x: Example) -> Example:
@@ -535,7 +535,7 @@ class NerAsSequenceLabelingAndRelationExtractionDataset(BaseDataset):
         return x
 
     def _is_valid_example(self, x: Example) -> bool:
-        if super()._is_valid_example(x):
+        if self._is_valid_example_re(x):
             return self._is_valid_example_ner(x)
         else:
             return False
@@ -581,6 +581,21 @@ class NerAsSequenceLabelingAndRelationExtractionDataset(BaseDataset):
                 return True
             else:
                 return True
+        except AssertionError as e:
+            self.logger.error(e)
+            return False
+
+    def _is_valid_example_re(self, x: Example) -> bool:
+        """
+        * спаны сущностей согласованы с текстом
+        в данном таске сущности уже даны заранее и могут быть любыми, поэтому не нужно проверять вложенность
+        """
+        try:
+            check_tokens_entities_alignment(x)
+            check_multi_class_ner_markup(x)
+            check_multi_class_re_markup(x)
+            check_arcs(x, one_child=False, one_parent=False)  # TODO: в конфиг
+            return True
         except AssertionError as e:
             self.logger.error(e)
             return False

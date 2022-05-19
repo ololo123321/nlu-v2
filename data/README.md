@@ -9,3 +9,4 @@
 * collection3 - оригинальный [Collection3](https://labinform.ru/pub/named_entities/descr_ne.htm)
 * collection5 - оригинальный [Collection5](https://labinform.ru/pub/named_entities/descr_ne.htm)
 * collection5_fixed - Collection5 со своими правками
+* rurebus - оригинальный [RuREBus](https://github.com/dialogue-evaluation/RuREBus)

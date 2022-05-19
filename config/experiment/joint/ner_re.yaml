@@ -5,10 +5,11 @@ model_cls:
 # TODO: сделать так, чтоб model.ner и model.re подгружались из ner/sequence_labeling и relation_extraction/base соответственно
 model:
   ner:
-    use_crf: true
+    use_crf: false
     num_labels: null  # заполняется в train.py
     no_entity_id: 0
     use_birnn: false
+    start_ids: null  # заполняется в train.py. нужно для построения вычислительного графа
     rnn:
       num_layers: 1
       cell_dim: 128
@@ -49,4 +50,4 @@ dataset:
     path: src.data.io.read_file_v3
 
 evaluator:
-  _target_: src.evaluators.RelationExtractionEvaluator
+  _target_: src.evaluators.NerAndRelationExtractionEvaluator

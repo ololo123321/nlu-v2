@@ -269,7 +269,8 @@ class Example(ReprMixin):
                     prefix = "I" + NER_PREFIX_JOINER
                 label = prefix + entity.label
                 t = entity.tokens[i]
-                assert t.label is None, f"[{self.id}] token {t.text} has already label {t.label}"
+                assert t.label is None, \
+                    f"[{self.id}] token {t} has already label {t.label}, but tried to assign label {label}"
                 t.label = label
         for t in self.tokens:
             if t.label is None:

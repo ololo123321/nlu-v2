@@ -26,7 +26,7 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
         self.re_labels_ph = None
 
         # TENSORS
-        self.logits_train = None
+        self.re_logits_train = None
         self.num_entities = None
         self.total_loss = None
         self.labels_pred = None
@@ -42,7 +42,7 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
         self.loss_mask = None
 
     def _build_re_head(self):
-        self.logits_train, self.num_entities = self._build_re_head_fn(bert_out=self.bert_out_train, ner_labels=self.ner_labels_ph)
+        self.re_logits_train, self.num_entities = self._build_re_head_fn(bert_out=self.bert_out_train, ner_labels=self.ner_labels_ph)
         logits_pred, _ = self._build_re_head_fn(bert_out=self.bert_out_pred, ner_labels=self.ner_labels_ph)
         self.labels_pred = tf.argmax(logits_pred, axis=-1)
 
@@ -109,12 +109,12 @@ class BertForRelationExtraction(BaseModelRelationExtraction, BaseModelBert):
         для joint
         """
         assert self.config["model"]["re"]["no_relation_id"] == 0
-        logits_shape = tf.shape(self.logits_train)
+        logits_shape = tf.shape(self.re_logits_train)
         labels = tf.scatter_nd(
             indices=self.re_labels_ph[:, :-1], updates=self.re_labels_ph[:, -1], shape=logits_shape[:-1]
         )
         per_example_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-            labels=labels, logits=self.logits_train
+            labels=labels, logits=self.re_logits_train
         )  # [batch_size, num_entities, num_entities]
 
         sequence_mask = tf.sequence_mask(self.num_entities, maxlen=logits_shape[1], dtype=tf.float32)
