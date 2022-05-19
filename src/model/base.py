@@ -601,11 +601,15 @@ class BaseModelNER(BaseModel):
 
     def __init__(self, sess, config: Dict = None, ner_enc: Dict = None):
         super().__init__(sess=sess, config=config)
+        # реализовано через проперти по следующим причинам:
+        # 1) гарантируется жёсткая зависимость inv_ner_enc от ner_enc
+        # 2) при попытке получить inv_ner_enc не нужно пробегать по значениям ner_enc,
+        #    как если бы это было проперти от ner_enc
         self._ner_enc = None
         self._inv_ner_enc = None
-
         self.ner_enc = ner_enc
 
+        # PLACEHOLDERS
         self.ner_labels_ph = None
 
     def _build_graph(self):
@@ -645,10 +649,9 @@ class BaseModelNER(BaseModel):
             self._inv_ner_enc = {v: k for k, v in ner_enc.items()}
 
 
-class BaseModelRelationExtraction(BaseModelNER):
+class BaseModelRelationExtraction(BaseModel):
     """
     сущности уже известны. требуется найти отношения между ними.
-    наследуется от BaseModelNER, потому что ner_enc тоже нужен для возмонжости использовать в модели лейблы сущностей.
     """
     re_scope = "re"
 
@@ -662,16 +665,13 @@ class BaseModelRelationExtraction(BaseModelNER):
         self._inv_re_enc = None
         self.re_enc = re_enc
 
+        # PLACEHOLDERS
         self.ner_labels_ph = None
 
     def _build_graph(self):
         self._build_embedder()
         with tf.variable_scope(self.re_scope):
             self._build_re_head()
-
-    # TODO: костыль
-    def _build_ner_head(self):
-        pass
 
     def save_config(self, model_dir: str):
         assert self.ner_enc is not None
@@ -696,6 +696,20 @@ class BaseModelRelationExtraction(BaseModelNER):
         pass
 
     @property
+    def ner_enc(self):
+        return self._ner_enc
+
+    @property
+    def inv_ner_enc(self):
+        return self._inv_ner_enc
+
+    @ner_enc.setter
+    def ner_enc(self, ner_enc: Dict):
+        self._ner_enc = ner_enc
+        if ner_enc is not None:
+            self._inv_ner_enc = {v: k for k, v in ner_enc.items()}
+
+    @property
     def re_enc(self):
         return self._re_enc
 
@@ -714,7 +728,7 @@ class BaseModelRelationExtraction(BaseModelNER):
 # * для ner + re в конфиге нужна секция model.ner, а в re - нет
 # * для ner + re нужно создавать слои под ner, а для re - нет
 # * для инференса модели re нужны истинные ner-лейблы, а для инференса модели ner + re - нет.
-class BaseModelNerAndRelationExtracion(BaseModelRelationExtraction):
+class BaseModelNerAndRelationExtracion(BaseModelNER, BaseModelRelationExtraction):
     """
     требуется найти сущности и отношения между ними
     """

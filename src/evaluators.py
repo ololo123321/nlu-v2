@@ -242,3 +242,31 @@ class RelationExtractionEvaluator(BaseEvaluator):
         res = classification_report(y_true=y_true, y_pred=y_pred)
         s = "\n" + classification_report_to_string(res)
         return Metric(value=res, string=s)
+
+
+class NerAndRelationExtractionEvaluator(BaseEvaluator):
+    def __init__(self, allow_examples_mismatch: bool = False, logger_parent_name: str = None):
+        super().__init__(allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=logger_parent_name)
+        self.evaluator_ner = NerEvaluator(
+            allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=self.__class__.__name__
+        )
+        self.evaluator_re = RelationExtractionEvaluator(
+            allow_examples_mismatch=allow_examples_mismatch, logger_parent_name=self.__class__.__name__
+        )
+
+    @log
+    def __call__(self, examples_gold: List[Example], examples_pred: List[Example]) -> Metric:
+        metric_ner = self.evaluator_ner(examples_gold=examples_gold, examples_pred=examples_pred)
+        metric_re = self.evaluator_re(examples_gold=examples_gold, examples_pred=examples_pred)
+        v = {
+            "ner": metric_ner.value,
+            "re": metric_re.value
+        }
+        s = '\n'
+        s += 'ner:\n'
+        s += metric_ner.string + '\n'
+        s += '=' + '\n'
+        s += 're:\n'
+        s += metric_re.string
+        metric_joint = Metric(value=v, string=s)
+        return metric_joint

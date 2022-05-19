@@ -1,0 +1,47 @@
+# @package _global_
+model_cls:
+  path: src.model.joint.BertForNerAsSequenceLabelingAndRelationExtraction
+
+# TODO: сделать так, чтоб model.ner и model.re подгружались из ner/sequence_labeling и relation_extraction/base соответственно
+model:
+  ner:
+    use_crf: true
+    num_labels: null  # заполняется в train.py
+    no_entity_id: 0
+    use_birnn: false
+    rnn:
+      num_layers: 1
+      cell_dim: 128
+      dropout: 0.5
+      recurrent_dropout: 0.0
+  re:
+    no_relation_id: 0
+    use_birnn: false
+    rnn:
+      num_layers: 1
+      cell_dim: 128
+      dropout: 0.5
+      recurrent_dropout: 0.0
+    entity_emb:
+      use: false
+      params:
+        dim: 16
+        num_labels: null  # нужно заполнять в train.py, при этом нужно фитить кодировку сущностей
+        merge_mode: concat
+        dropout: 0.3
+    biaffine:
+      num_mlp_layers: 1
+      activation: relu
+      head_dim: 128
+      dep_dim: 128
+      dropout: 0.33
+      num_labels: null  # заполняется в train.py
+
+dataset:
+  _target_: src.data.datasets.RelationExtractionDataset  # здесь уже есть всё, что нужно
+  read_fn:
+    _target_: hydra.utils.get_static_method
+    path: src.data.io.read_file_v3
+
+evaluator:
+  _target_: src.evaluators.RelationExtractionEvaluator
