@@ -7,5 +7,5 @@ pytest==5.3.2
 rusenttokenize==0.0.5
 nltk
 tqdm==4.60.0
-hydra-core
-omegaconf
+hydra-core==1.1.1
+omegaconf==2.1.1

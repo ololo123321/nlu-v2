@@ -260,7 +260,7 @@ class NerAndRelationExtractionEvaluator(NerEvaluator):
             examples_gold=examples_gold, examples_pred=examples_pred
         )
 
-        gold_triples = set()  # (head, dep, rel), head, dep = (start, end, label)
+        gold_triples = set()  # (head, dep, rel). {head, dep} = (start, end, label)
         pred_triples = set()
         for x, y in zip(examples_gold_sort, examples_pred_sort):
             assert x.id == y.id, f'{x.id} != {y.id}'

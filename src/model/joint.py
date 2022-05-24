@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from src.data.base import Example, Entity, Arc, NO_LABEL, NO_LABEL_ID
+from src.data.base import Example, Entity, Arc, NO_LABEL, NO_LABEL_ID, NER_PREFIX_JOINER
 from src.model.base import ModeKeys
 from src.model.utils import get_sent_pairs_to_predict_for, get_batched_coords_from_labels
 from src.model.relation_extraction import BertForRelationExtraction
@@ -198,7 +198,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
                 id_label = self.ner_enc.get(t.label, NO_LABEL_ID)
                 if t.label not in self.ner_enc:
                     self.logger.warning(f'[{x.id}] No label {t.label} in ner_enc. Return NO_LABEL_ID={NO_LABEL_ID}')
-                ner_labels_i.append(id_label)  # ner решается на уровне токенов!
+                ner_labels_i.append(id_label)
             ner_labels.append(ner_labels_i)
 
             # relations
@@ -276,6 +276,33 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
             max_tokens_per_batch=self.config["inference"]["max_tokens_per_batch"],
             pieces_level=True
         )
+
+        # хотя и нужно в цикле по x.arcs проверять вхождение в этот список,
+        # это не должно быть затратно по времени, потому что для большинства примеров данный список будет пустым,
+        # а с каждым новым примером этот список очищается.
+        invalid_entity_indices = []
+
+        def _maybe_shift_index(index):
+            """
+            Нужна для корректного построения вектора y_true для задачи relation extraction
+            при условии наличия новых сущностей в валидационной выборке, что значит то, что
+            граф связей на инференсе строился не над всеми сущностями.
+
+            * если есть новые сущности, то могут поехать arc.{head, dep}_index
+            * чтоб восстановить верное соответствие, нужно их сдвинуть.
+            * пример: entity_indices = [0, 1, 2, 3], invalid_entity_indices = [0, 2]
+              тогда entity_indices нужно изменить следующим образом:
+              0 -> delete; 1 -> shift left by 1; 2 - delete, 3 - shift left by 2.
+            """
+            if len(invalid_entity_indices) == 0:
+                return index
+            res = index
+            for idx in invalid_entity_indices:
+                assert idx != index
+                if idx < index:
+                    res -= 1
+            return res
+
         for batch in gen:
             feed_dict = self._get_feed_dict(batch, mode=ModeKeys.VALID)
             loss_re_i, loss_ner_i, d_ner, ner_labels_pred, re_labels_pred = self.sess.run([
@@ -303,19 +330,26 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
                 y_pred_flat += y_pred_i
 
                 # re
-                # num_entities_i = len(x.entities)
-                # TODO: это тоже не совсем выход, потому что лейблы отношений проставляются в зависимости от
-                #  {head, dep}.index, которые выводятся исходя из исходных сущностей примера: их числа и порядка
-                num_entities_i = sum(map(self._is_valid_entity, x.entities))
+                num_entities_i = 0
+                for e in x.entities:
+                    if self._is_valid_entity(e):
+                        num_entities_i += 1
+                    else:
+                        invalid_entity_indices.append(e.index)
+
                 num_entities_i_squared = num_entities_i ** 2
                 loss_denominator_re += num_entities_i_squared
                 y_true_i = [NO_LABEL] * num_entities_i_squared
-
                 for arc in x.arcs:
                     assert arc.head_index is not None
                     assert arc.dep_index is not None
-                    y_true_i[num_entities_i * arc.head_index + arc.dep_index] = arc.rel
+                    if (arc.head_index in invalid_entity_indices) or (arc.dep_index in invalid_entity_indices):
+                        continue
+                    head_index = _maybe_shift_index(arc.head_index)
+                    dep_index = _maybe_shift_index(arc.dep_index)
+                    y_true_i[num_entities_i * head_index + dep_index] = arc.rel
                 y_true += y_true_i
+                invalid_entity_indices.clear()
 
                 labels_pred_i = re_labels_pred[i, :num_entities_i, :num_entities_i]
                 assert labels_pred_i.shape[0] == num_entities_i, f"{labels_pred_i.shape[0]} != {num_entities_i}"
@@ -478,7 +512,7 @@ class BertForNerAsSequenceLabelingAndRelationExtraction(BertForRelationExtractio
         * число таких пар - n^2, где n - число таких лейблов l в последовательности лейблов токенов,
           что l in self.config["model"]["ner]["start_ids"]
         * если какие-то l отсутстовали в обучении, то их нет в ner_enc. в таком случае на его место ставится лейбл NO_LABEL
-        * таким образом, если в валидационном примере есть новая сущность (или настолько редкая для обучения, что её не стали добавлять в ner_enc),
+        * таким образом, если в валидационном примере есть новая сущность,
           то не будет гарантироваться биекция между следующими списками:
           - [ner_enc[e.tokens[0].label] for e in x.entities]
           - [i for i in label_ids if i in start_ids]
