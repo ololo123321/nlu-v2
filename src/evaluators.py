@@ -101,13 +101,21 @@ class CoreferenceResolutionEvaluator(BaseEvaluator):
             )
             is_blanc = metric == "blanc"
             metrics[metric] = parse_conll_metrics(stdout=stdout, is_blanc=is_blanc)
-        metrics["score"] = (metrics["muc"]["f1"] + metrics["bcub"]["f1"] + metrics["ceafm"]["f1"] + metrics["ceafe"][
-            "f1"]) / 4.0
+
+        score = (metrics["muc"]["f1"] + metrics["bcub"]["f1"] + metrics["ceafm"]["f1"] + metrics["ceafe"]["f1"]) / 4.0
+
+        s = ''
+        s += '\n'
+        s += classification_report_to_string(metrics)
+        s += '\n\n'
+        s += f'avg f1 wo blanc: {round(score, 4)}'
+
+        metrics["score"] = score
 
         self.logger.info("removing temp files")
         os.remove(path_gold)
         os.remove(path_pred)
-        return Metric(value=metrics, string=json.dumps(metrics, indent=2))
+        return Metric(value=metrics, string=s)
 
 
 # TODO: allow_examples_mismatch
