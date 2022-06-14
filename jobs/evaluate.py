@@ -36,7 +36,7 @@ def main(cfg: DictConfig):
     if cfg.metrics_path is not None:
         logger.info(f"saving metrics to {cfg.metrics_path}")
         with open(cfg.metrics_path, "w") as f:
-            json.dump(metric.value, f)
+            json.dump(metric.value, f, indent=2, ensure_ascii=False)
     else:
         logger.info("saving ignored due to output_path is not provided")
 
