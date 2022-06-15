@@ -1,4 +1,8 @@
 # см. описание в predict.py
+defaults:
+  - _self_
+  - hydra: hydra_default
+
 test_data_path: ???
 predictions_path: ???
 model_dir: ???

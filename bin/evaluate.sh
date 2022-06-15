@@ -1,3 +1,4 @@
+# нужно прокидвать experiment, потому что есть зависимость с cfg.dataset, cfg.evaluator.
 experiment="dependency_parsing"
 gold_data_path=""
 predictions_path=""

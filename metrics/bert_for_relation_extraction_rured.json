@@ -1,0 +1,200 @@
+{
+  "micro": {
+    "tp": 598,
+    "fp": 306,
+    "fn": 315,
+    "f1": 0.6582278481012658,
+    "precision": 0.661504424778761,
+    "recall": 0.6549835706462213,
+    "support": 913
+  },
+  "WORKPLACE": {
+    "tp": 162,
+    "fp": 56,
+    "fn": 50,
+    "f1": 0.7534883720930232,
+    "precision": 0.7431192660550459,
+    "recall": 0.7641509433962265,
+    "support": 212
+  },
+  "WORKS_AS": {
+    "tp": 187,
+    "fp": 33,
+    "fn": 12,
+    "f1": 0.8926014319809069,
+    "precision": 0.85,
+    "recall": 0.9396984924623115,
+    "support": 199
+  },
+  "OWNERSHIP": {
+    "tp": 93,
+    "fp": 61,
+    "fn": 70,
+    "f1": 0.5867507886435331,
+    "precision": 0.6038961038961039,
+    "recall": 0.5705521472392638,
+    "support": 163
+  },
+  "EVENT_TAKES_PART_IN": {
+    "tp": 13,
+    "fp": 5,
+    "fn": 7,
+    "f1": 0.6842105263157895,
+    "precision": 0.7222222222222222,
+    "recall": 0.65,
+    "support": 20
+  },
+  "FOUNDED_BY": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 6,
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "support": 6
+  },
+  "HEADQUARTERED_IN": {
+    "tp": 74,
+    "fp": 71,
+    "fn": 26,
+    "f1": 0.6040816326530613,
+    "precision": 0.5103448275862069,
+    "recall": 0.74,
+    "support": 100
+  },
+  "ORGANIZES": {
+    "tp": 3,
+    "fp": 1,
+    "fn": 2,
+    "f1": 0.6666666666666665,
+    "precision": 0.75,
+    "recall": 0.6,
+    "support": 5
+  },
+  "DATE_TAKES_PLACE_ON": {
+    "tp": 3,
+    "fp": 5,
+    "fn": 4,
+    "f1": 0.39999999999999997,
+    "precision": 0.375,
+    "recall": 0.42857142857142855,
+    "support": 7
+  },
+  "ORIGINS_FROM": {
+    "tp": 2,
+    "fp": 0,
+    "fn": 10,
+    "f1": 0.2857142857142857,
+    "precision": 1.0,
+    "recall": 0.16666666666666666,
+    "support": 12
+  },
+  "SUBORDINATE_OF": {
+    "tp": 4,
+    "fp": 2,
+    "fn": 3,
+    "f1": 0.6153846153846153,
+    "precision": 0.6666666666666666,
+    "recall": 0.5714285714285714,
+    "support": 7
+  },
+  "ALTERNATIVE_NAME": {
+    "tp": 7,
+    "fp": 6,
+    "fn": 18,
+    "f1": 0.3684210526315789,
+    "precision": 0.5384615384615384,
+    "recall": 0.28,
+    "support": 25
+  },
+  "SELLS_TO": {
+    "tp": 18,
+    "fp": 44,
+    "fn": 45,
+    "f1": 0.288,
+    "precision": 0.2903225806451613,
+    "recall": 0.2857142857142857,
+    "support": 63
+  },
+  "ABBREVIATION": {
+    "tp": 16,
+    "fp": 11,
+    "fn": 4,
+    "f1": 0.6808510638297872,
+    "precision": 0.5925925925925926,
+    "recall": 0.8,
+    "support": 20
+  },
+  "MEMBER": {
+    "tp": 5,
+    "fp": 2,
+    "fn": 32,
+    "f1": 0.22727272727272727,
+    "precision": 0.7142857142857143,
+    "recall": 0.13513513513513514,
+    "support": 37
+  },
+  "DATE_FOUNDED_IN": {
+    "tp": 0,
+    "fp": 4,
+    "fn": 0,
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "support": 0
+  },
+  "TAKES_PLACE_IN": {
+    "tp": 9,
+    "fp": 3,
+    "fn": 2,
+    "f1": 0.7826086956521738,
+    "precision": 0.75,
+    "recall": 0.8181818181818182,
+    "support": 11
+  },
+  "PRODUCES": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 15,
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "support": 15
+  },
+  "PARENT_OF": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "support": 2
+  },
+  "PLACE_RESIDES_IN": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "support": 1
+  },
+  "NUMBER_OF_EMPLOYEES_FIRED": {
+    "tp": 2,
+    "fp": 2,
+    "fn": 5,
+    "f1": 0.36363636363636365,
+    "precision": 0.5,
+    "recall": 0.2857142857142857,
+    "support": 7
+  },
+  "NUMBER_OF_EMPLOYEES": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "support": 1
+  }
+}
