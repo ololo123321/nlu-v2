@@ -884,7 +884,7 @@ def from_conllu(path: str, warn: bool = True) -> List[Example]:
     text = None
 
     def remove_spaces(s):
-        return s.replace(' ', '').replace('\xa0', '')
+        return s.replace(' ', '').replace('\xa0', '').replace('\u2005', '')
 
     def append_chunk():
         id_chunk = f"{filename_doc}_{id_sent}"

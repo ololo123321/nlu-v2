@@ -6,6 +6,7 @@ model:
   ner:
     use_crf: true
     num_labels: null  # заполняется в train.py
+    start_ids: null  # не нужно отдельно для sequence_labeling, но нужно для relation_extraction. указал, чтоб код не ломался в train.py
     no_entity_id: 0
     use_birnn: false
     rnn:

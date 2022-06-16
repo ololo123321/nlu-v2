@@ -378,6 +378,7 @@ class NerAsSequenceLabelingDataset(BaseDataset):
             return False
 
     def _preprocess_example(self, x: Example) -> Example:
+        x.arcs = []
         simplify(x)
         x.assign_labels_to_tokens()
         x.chunks = split_example_v2(
@@ -393,6 +394,7 @@ class NerAsSequenceLabelingDataset(BaseDataset):
         return x
 
     def _clear_example(self, x: Example) -> None:
+        x.arcs = []
         x.entities = []
         for t in x.tokens:
             t.reset()
@@ -412,6 +414,7 @@ class NerAsSpanPredictionDataset(NerAsSequenceLabelingDataset):
         return res
 
     def _preprocess_example(self, x: Example) -> Example:
+        x.arcs = []
         simplify(x)
         x.chunks = split_example_v2(
             x,
@@ -426,6 +429,7 @@ class NerAsSpanPredictionDataset(NerAsSequenceLabelingDataset):
         return x
 
     def _clear_example(self, x: Example) -> None:
+        x.arcs = []
         x.entities = []
 
 

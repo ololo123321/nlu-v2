@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from src.data.base import Example, Entity, Arc, NO_LABEL, NO_LABEL_ID, NER_PREFIX_JOINER
+from src.data.base import Example, Entity, Arc, NO_LABEL, NO_LABEL_ID
 from src.model.base import ModeKeys
 from src.model.utils import get_sent_pairs_to_predict_for, get_batched_coords_from_labels
 from src.model.relation_extraction import BertForRelationExtraction

@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from src.data.base import Example, Entity, NO_LABEL
+from src.data.base import Example, Entity, NO_LABEL, NO_LABEL_ID
 from src.data.postprocessing import get_valid_spans
 from src.model.base import BaseModelNER, BaseModelBert, ModeKeys
 from src.model.layers import GraphEncoder, GraphEncoderInputs
@@ -238,7 +238,9 @@ class BertForNerAsSequenceLabeling(BaseModelNER, BaseModelBert):
             for x in examples:
                 ner_labels_i = []
                 for t in x.tokens:
-                    id_label = self.ner_enc[t.label]
+                    id_label = self.ner_enc.get(t.label, NO_LABEL_ID)
+                    if t.label not in self.ner_enc:
+                        self.logger.warning(f'[{x.id}] No label {t.label} in ner_enc. Return NO_LABEL_ID={NO_LABEL_ID}')
                     ner_labels_i.append(id_label)  # ner решается на уровне токенов!
                 ner_labels.append(ner_labels_i)
 
