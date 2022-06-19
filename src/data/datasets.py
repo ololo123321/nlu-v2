@@ -29,6 +29,7 @@ class BaseDataset(ABC, LoggerMixin):
             tokenizer: FullTokenizer = None,
             tokens_expression: Union[str, Pattern] = None,
             ignore_bad_examples: bool = True,
+            ignore_without_annotation: bool = True,
             max_chunk_length: int = 512,
             window: int = 1,
             stride: int = 1,
@@ -44,6 +45,7 @@ class BaseDataset(ABC, LoggerMixin):
         if isinstance(self.tokens_expression, str):
             self.tokens_expression = re.compile(self.tokens_expression)
         self.ignore_bad_examples = ignore_bad_examples
+        self.ignore_without_annotation = ignore_without_annotation
         self.max_chunk_length = max_chunk_length  # TODO: без учёта cls и sep
         self.window = window
         self.stride = stride
@@ -61,6 +63,7 @@ class BaseDataset(ABC, LoggerMixin):
             n=limit,
             tokens_expression=self.tokens_expression,
             ignore_bad_examples=self.ignore_bad_examples,
+            ignore_without_annotation=self.ignore_without_annotation,
             read_fn=self.read_fn,
             verbose_fn=self.logger.info
         )

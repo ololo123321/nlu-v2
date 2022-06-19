@@ -42,6 +42,7 @@ dataset:
   tokenizer: ???
   tokens_expression: null
   ignore_bad_examples: true
+  ignore_without_annotation: true
   max_chunk_length: 512
   window: 1
   stride: 1

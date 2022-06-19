@@ -33,6 +33,7 @@ def load_collection(
         n: int = None,
         tokens_expression: Union[str, Pattern] = None,
         ignore_bad_examples: bool = False,
+        ignore_without_annotation: bool = True,
         read_fn: Callable = None,
         verbose_fn: Callable = print
 ) -> List[Example]:
@@ -43,10 +44,14 @@ def load_collection(
     files = os.listdir(data_dir)
     texts = {x.split('.')[0] for x in files if x.endswith('.txt')}
     answers = {x.split('.')[0] for x in files if x.endswith('.ann')}
-    names_to_use = sorted(texts & answers)  # сортировка для детерминированности
+    names_to_use = texts
+    if ignore_without_annotation:
+        verbose_fn("consider only texts with annotation due to ignore_without_annotation=True")
+        names_to_use &= answers
+    names_to_use = sorted(names_to_use)  # сортировка для детерминированности
     verbose_fn(f"num .txt files: {len(texts)}")
     verbose_fn(f"num .ann files: {len(answers)}")
-    verbose_fn(f"num annotated texts: {len(names_to_use)}")
+    verbose_fn(f"num texts to use: {len(names_to_use)}")
 
     if (n is not None) and (n > 0):
         names_to_parse = names_to_use[:n]
@@ -188,13 +193,42 @@ def parse_example(
     with open(os.path.join(data_dir, f'{filename}.txt')) as f:
         text = read_fn(f)
 
+    # очистка текста от "плохих" символов
+    bad_ids = get_invalid_char_indices(text)
+    text_clean = remove_bad_ids(text, bad_ids)
+
+    # токенизация текста
+    tokens = []
+    start2token = {}
+    for i, m in enumerate(tokens_expression.finditer(text_clean)):
+        span = Span(*m.span())
+        token = Token(
+            text=m.group(),
+            span_abs=span,
+            span_rel=span,
+            index_abs=i,
+            index_rel=i,
+        )
+        tokens.append(token)
+        start2token[span.start] = token
+
+    path_ann = os.path.join(data_dir, f'{filename}.ann')
+    if not os.path.exists(path_ann):
+        example = Example(
+            filename=filename,
+            id=filename,
+            text=text_clean,
+            tokens=tokens
+        )
+        return example
+
     # .ann
     id2entity = {}
     id2event = {}
     id2arc = {}
     id2arg = {}
 
-    with open(os.path.join(data_dir, f'{filename}.ann'), 'r') as f:
+    with open(path_ann) as f:
         for line in f:
             line = line.strip()
             content = line.split('\t')
@@ -331,25 +365,6 @@ def parse_example(
         id2entity[event.trigger].is_event_trigger = True
 
     entities = list(id2entity.values())
-
-    # очистка текста от "плохих" символов
-    bad_ids = get_invalid_char_indices(text)
-    text_clean = remove_bad_ids(text, bad_ids)
-
-    # токенизация текста
-    tokens = []
-    start2token = {}
-    for i, m in enumerate(tokens_expression.finditer(text_clean)):
-        span = Span(*m.span())
-        token = Token(
-            text=m.group(),
-            span_abs=span,
-            span_rel=span,
-            index_abs=i,
-            index_rel=i,
-        )
-        tokens.append(token)
-        start2token[span.start] = token
 
     # очистка названия сущности от "плохих символов"
     # фикс спана сущности
