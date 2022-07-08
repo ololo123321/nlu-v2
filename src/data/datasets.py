@@ -14,7 +14,7 @@ from src.data.check import (
     check_multi_class_re_markup
 )
 from src.data.preprocessing import split_example_v2, enumerate_entities, get_connected_components
-from src.data.base import Languages, Example, NO_LABEL
+from src.data.base import Languages, Example, Token, NO_LABEL, TOKENS_EXPRESSION
 from src.utils import LoggerMixin, log
 
 
@@ -258,10 +258,46 @@ class CoreferenceResolutionDataset(BaseDataset):
 
 
 class DependencyParsingDataset(BaseDataset):
+    def __init__(self, from_brat: bool = False, **kwargs):
+        super().__init__(**kwargs)
+        self.from_brat = from_brat
+
     @log
     def load(self, path: str, limit: int = None, read_fn: Callable = read_file_v3):
-        self.data = from_conllu(path=path, warn=False)
+        if not self.from_brat:
+            self.data = from_conllu(path=path, warn=False)
+        else:
+            # копипаста, чтоб логи не повторялись
+            self.data = load_collection(
+                data_dir=path,
+                n=limit,
+                tokens_expression=self.tokens_expression,
+                ignore_bad_examples=self.ignore_bad_examples,
+                ignore_without_annotation=self.ignore_without_annotation,
+                read_fn=self.read_fn,
+                verbose_fn=self.logger.info
+            )
+            self.logger.info("from_brat=True, so tokenizing input examples...")
+            for x in self.data:
+                self._transform_brat_example(x)
         return self
+
+    @staticmethod
+    def _transform_brat_example(x: Example):
+        """
+        * каждому примеру должен быть присовен кусок с текстом из самого примера (примеры должны быть по предложениям)
+        * каждый кусок должен быть токенизирован по выражению TOKENS_EXPRESSION
+        """
+        id_sent = 0
+        id_chunk = f"{x.filename}_{id_sent}"
+        tokens = [Token(text=t) for t in TOKENS_EXPRESSION.findall(x.text)]
+        chunk = Example(
+            filename=x.filename,
+            id=id_chunk,
+            text=x.text,
+            tokens=tokens
+        )
+        x.chunks.append(chunk)
 
     @log
     def save(self, path: str) -> None:
@@ -312,34 +348,8 @@ class DependencyParsingDataset(BaseDataset):
 
 
 class NerAsSequenceLabelingDataset(BaseDataset):
-    def __init__(
-            self,
-            data: List[Example] = None,
-            tokenizer: FullTokenizer = None,
-            tokens_expression: Union[str, Pattern] = None,
-            ignore_bad_examples: bool = True,
-            max_chunk_length: int = 512,
-            window: int = 1,
-            stride: int = 1,
-            language: str = Languages.RU,
-            fix_sent_pointers: bool = True,
-            read_fn: Callable = None,
-            is_flat_ner: bool = True,
-            logger_parent_name: str = None
-    ):
-        super().__init__(
-            data=data,
-            tokenizer=tokenizer,
-            tokens_expression=tokens_expression,
-            ignore_bad_examples=ignore_bad_examples,
-            max_chunk_length=max_chunk_length,
-            window=window,
-            stride=stride,
-            language=language,
-            fix_sent_pointers=fix_sent_pointers,
-            read_fn=read_fn,
-            logger_parent_name=logger_parent_name
-        )
+    def __init__(self, is_flat_ner: bool = False, **kwargs):
+        super().__init__(**kwargs)
         self.is_flat_ner = is_flat_ner
 
     @log

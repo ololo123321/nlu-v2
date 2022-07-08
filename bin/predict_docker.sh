@@ -12,6 +12,14 @@ vocab_path="/nlu/data/vocab.txt"
 num_examples_test=3
 ignore_without_annotation=false
 
+# don't forget to set ++dataset.from_brat=true
+#test_data_path="/data/dp_test"
+#model_dir="/data/models/bert_for_dependency_parsing"
+#predictions_path="/data/dp_test/preds.conllu"
+#vocab_path="/nlu/data/vocab.txt"
+#num_examples_test=3
+#ignore_without_annotation=false
+
 docker run \
 	-it \
 	--rm \

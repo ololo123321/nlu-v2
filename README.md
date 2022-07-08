@@ -1,5 +1,19 @@
-### Inference
+Some experiments with classic nlp tasks.  
+Backbone for all experiments: [ruBERT from DeepPavlov](http://files.deeppavlov.ai/deeppavlov_data/bert/rubert_cased_L-12_H-768_A-12_v2.tar.gz).  
+All models implemented in tensorflow-1.15.  
+Inference and evaluation of all models can be done in docker: see `bin/predict_docker.sh`, `bin/evaluate_docker.sh`.  
+Inference can be done on cpu and gpu.
 
+### Inference guide
+1. Create directory with documents to make predictions for. Some tasks require additional information except plain text in `.txt` file:
+    * `coreference_resolution` - `.ann` file with mentions
+    * `relation_extraction` - `.ann` file with entities.  
+    
+    The simplest way to run dependency parser on unlabeled data: 
+    1. create directory `data_dir` with `.txt` files: one sentence per file.
+    2. `python predict.py test_data_path=data_dir ++dataset.from_brat=true ...`
+2. Set valid paths in `predict_docker.sh` file.
+3. `bash predict_docker.sh`
 
 ### Best models for each experiment
 | experiment                               | dataset                | checkpoint                                                             | url                                     | metric                                   | value  |
@@ -23,3 +37,12 @@ If done manually, need to load and unpack [release 8.01](https://github.com/conl
 If done via my docker image `ololo123321/nlu:cuda10.0-runtime-ubuntu18.04-py3.7`, provide the following value for argument `evaluator.scorer_path`: `/app/reference-coreference-scorers-8.01/scorer.pl`.
 
 ### Papers
+
+| paper                                                                                                                                            | experiment                                      |
+|--------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------|
+| [Higher-order Coreference Resolution with Coarse-to-fine Inference](https://arxiv.org/abs/1804.05392)                                            | `coreference_resolution`                        |
+| [Neural Coreference Resolution with Deep Biaffine Attention by Joint Mention Detection and Mention Clustering](https://arxiv.org/abs/1805.04893) | `coreference_resolution`                        |
+| [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734)                                                        | `dependency_parsing`                            |
+| [Named Entity Recognition as Dependency Parsing](https://arxiv.org/abs/2005.07150)                                                               | `ner/span_prediction`                           |
+| [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529)                                        | `relation_extraction`                           |
+| [End-to-end neural relation extraction using deep biaffine attention](https://arxiv.org/abs/1812.11275)                                          | `joint/ner_re`, `relation_extraction`           |

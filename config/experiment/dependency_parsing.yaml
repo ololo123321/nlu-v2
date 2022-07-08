@@ -29,6 +29,7 @@ model:
 
 dataset:
   _target_: src.data.datasets.DependencyParsingDataset
+  from_brat: false
 
 evaluator:
   _target_: src.evaluators.DependencyParsingEvaluator
