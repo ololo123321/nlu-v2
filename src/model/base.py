@@ -7,10 +7,10 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import tqdm
-from bert.modeling import BertModel, BertConfig
+from ..bert_modeling import BertModel, BertConfig  # see my comments in head of bert_modeling.py
 try:
     from bert.optimization import create_optimizer
-except:
+except ImportError:
     def create_optimizer(*args, **kwargs):
         pass
 
@@ -498,7 +498,7 @@ class BaseModelBert(BaseModel):
             }
             saver = tf.train.Saver(var_list)
             bert_dir = kwargs["bert_dir"]
-            checkpoint_path = os.path.join(bert_dir, "bert_model.ckpt")
+            checkpoint_path = os.path.join(bert_dir, "bert_model.ckpt")  # TODO: мб имя чекпоинта вынести в конфиг?
             saver.restore(self.sess, checkpoint_path)
 
     def _set_train_op(self):

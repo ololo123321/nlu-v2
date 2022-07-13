@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import tqdm
 
 from bert.tokenization import FullTokenizer
+from transformers.tokenization_utils import PreTrainedTokenizer
 
 from src.data.io import load_collection, simplify, read_file_v3, from_conllu, to_conllu, to_brat_v2
 from src.data.check import (
@@ -26,7 +27,7 @@ class BaseDataset(ABC, LoggerMixin):
     def __init__(
             self,
             data: List[Example] = None,
-            tokenizer: FullTokenizer = None,
+            tokenizer: Union[FullTokenizer, PreTrainedTokenizer] = None,
             tokens_expression: Union[str, Pattern] = None,
             ignore_bad_examples: bool = True,
             ignore_without_annotation: bool = True,

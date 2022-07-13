@@ -1,0 +1,4 @@
+# @package _global_
+tokenizer:
+  _target_: transformers.RobertaTokenizer.from_pretrained
+  pretrained_model_name_or_path: ${model.pretrained_dir}
