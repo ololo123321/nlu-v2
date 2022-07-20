@@ -1,4 +1,13 @@
 # @package _global_
-tokenizer:
-  _target_: transformers.RobertaTokenizer.from_pretrained
-  pretrained_model_name_or_path: ${model.pretrained_dir}
+defaults:
+  - override /tokenizer: roberta
+model:
+  bert:
+    params_updates:
+      attention_probs_dropout_prob: 0.1  # in case of large model
+dataset:
+  is_bpe: true
+training:
+  batch_size: 8  # large
+optimizer:
+  init_lr: 1e-5  # large

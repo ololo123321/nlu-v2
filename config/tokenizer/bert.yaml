@@ -1,0 +1,3 @@
+_target_: bert.tokenization.FullTokenizer
+vocab_file: ${model.pretrained_dir}/vocab.txt
+do_lower_case: false

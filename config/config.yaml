@@ -1,6 +1,7 @@
 defaults:
   - _self_
   - hydra: hydra_default
+  - tokenizer: bert
 
 model_cls:
   _target_: hydra.utils.get_class
@@ -27,11 +28,6 @@ model:
       attention_probs_dropout_prob: 0.5  # default 0.1
       hidden_dropout_prob: 0.1  # default 0.1
 
-tokenizer:
-  _target_: bert.tokenization.FullTokenizer
-  vocab_file: ${model.pretrained_dir}/vocab.txt
-  do_lower_case: false
-
 optimizer:
   init_lr: 2e-5
   warmup_proportion: 0.1
@@ -48,6 +44,7 @@ dataset:
   stride: 1
   language: ru
   fix_sent_pointers: true
+  is_bpe: false  # True in case of roberta
   read_fn:
     _target_: hydra.utils.get_static_method
     path: src.data.io.read_file_v3

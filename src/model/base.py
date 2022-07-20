@@ -10,7 +10,8 @@ import tqdm
 from ..bert_modeling import BertModel, BertConfig  # see my comments in head of bert_modeling.py
 try:
     from bert.optimization import create_optimizer
-except ImportError:
+except (ImportError, AttributeError):
+    # AttributeError: module 'tensorflow._api.v2.train' has no attribute 'Optimizer'
     def create_optimizer(*args, **kwargs):
         pass
 

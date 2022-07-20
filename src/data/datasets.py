@@ -36,6 +36,7 @@ class BaseDataset(ABC, LoggerMixin):
             stride: int = 1,
             language: str = Languages.RU,
             fix_sent_pointers: bool = True,
+            is_bpe: bool = False,  # True in case of roberta
             read_fn: Callable = None,
             logger_parent_name: str = None
     ):
@@ -52,6 +53,7 @@ class BaseDataset(ABC, LoggerMixin):
         self.stride = stride
         self.language = language
         self.fix_sent_pointers = fix_sent_pointers
+        self.is_bpe = is_bpe
         if read_fn is not None:
             self.read_fn = read_fn
         else:
@@ -190,7 +192,12 @@ class BaseDataset(ABC, LoggerMixin):
         word-piece токенизация
         """
         for t in x.tokens:
-            t.pieces = self.tokenizer.tokenize(t.text)
+            text = t.text
+            # When used with ``is_split_into_words=True``, this tokenizer will add a space before each word
+            # (even the first one).
+            if self.is_bpe:
+                text = " " + text
+            t.pieces = self.tokenizer.tokenize(text)
             t.token_ids = self.tokenizer.convert_tokens_to_ids(t.pieces)
 
     def _is_valid_length(self, x: Example) -> bool:
