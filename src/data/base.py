@@ -68,6 +68,7 @@ class LineTypes:
     ATTRIBUTE_OLD = "M"
     COMMENT = "#"
     EQUIV = "*"  # TODO: что это??
+    NORMALIZATION = "N"
 
 
 class Languages:
@@ -152,6 +153,13 @@ class Token(ReprMixin):
         self.pos = None
 
 
+class Normalization(ReprMixin):
+    def __init__(self, id: str, ref: str, text: str = None):
+        self.id = id
+        self.ref = ref
+        self.text = text
+
+
 class Entity(ReprMixin):
     def __init__(
             self,
@@ -161,28 +169,20 @@ class Entity(ReprMixin):
             tokens: List[Token] = None,
             is_event_trigger: bool = False,
             attrs: List[Attribute] = None,  # атрибуты сущности
+            norms: List[Normalization] = None,  # normalizations
             comment: str = None,
             index: int = None,
             id_chain: int = None,  # для coreference resolution
             span: Tuple = None
     ):
-        """
 
-        :param id:
-        :param label:
-        :param text:
-        :param tokens:
-        :param is_event_trigger:
-        :param attrs:
-        :param comment:
-        :param span:
-        """
         self.id = id
         self.label = label
         self.text = text
         self.tokens = tokens if tokens is not None else []
         self.is_event_trigger = is_event_trigger
         self.attrs = attrs if attrs is not None else []
+        self.norms = norms if norms is not None else []
         self.comment = comment
         self.index = index
         self.id_chain = id_chain

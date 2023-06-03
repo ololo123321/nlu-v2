@@ -226,6 +226,7 @@ def split_example_v2(
                     tokens=[token_assignment_map[t] for t in entity.tokens],
                     is_event_trigger=entity.is_event_trigger,
                     attrs=entity.attrs.copy(),
+                    norms=entity.norms.copy(),
                     comment=entity.comment,
                     index=entity.index,
                     id_chain=entity.id_chain
@@ -258,6 +259,10 @@ def split_example_v2(
 
 
 def fix_pointers_fn(pointers: List[int], entity_spans: List[Span]) -> List[int]:
+    """
+    Вход: pointers - индексы первых токенов предложений.
+    Выход: res - подмножество pointers такое, что каждый элемент res не является частью именной сущности
+    """
     res = []
     for p in pointers:
         is_good = True
@@ -389,7 +394,11 @@ def assign_sent_ids_to_tokens(example: Example, pointers: List[int]):
 #         #         t.labels_pieces += [pad] * (num_pieces - 1)
 
 
-def enumerate_entities(example: Example):
+def enumerate_entities(example: Example) -> None:
+    """
+    Присвоение порядкового номера сущностям.
+    Нужно для задачи построения графа над именными сущностями: индексы сущностей идут на вход модели.
+    """
     id2index = {}
     entities_sorted = sorted(example.entities, key=lambda e: (e.tokens[0].index_rel, e.tokens[-1].index_rel))
     for i, entity in enumerate(entities_sorted):
@@ -407,6 +416,9 @@ def fit_encodings(
         label_other: str = "O",
         ner_enc_token_level: bool = True
 ) -> Tuple[Dict[str, int], Dict[str, int]]:
+    """
+    Построение отображений "лейбл -> int" для задач ner и re
+    """
     ner_labels = defaultdict(int)
     re_labels = defaultdict(int)
 
@@ -443,7 +455,10 @@ def apply_encodings(
         ner_enc: Dict[str, int],
         re_enc: Dict[str, int],
         ner_enc_token_level: bool = True
-):
+) -> None:
+    """
+    Присвоение целоичисленных идентификаторов лейблам токенов, сущностей, рёбер (in-place)
+    """
     unk_ner_labels = defaultdict(int)
     unk_re_labels = defaultdict(int)
 
@@ -494,7 +509,12 @@ def apply_encodings(
 #     print("percent change:", round((p / r - 1.0) * 100, 4), "%")
 
 
-def assign_id_chain(examples: List[Example]):
+def assign_id_chain(examples: List[Example]) -> None:
+    """
+    Дано: пример с именными сущностями и рёбрами между ними.
+    Требуется сгруппировать сущности в компоненты связности.
+    В рамках данной функции каждой сущности присваивается идентификатор компоненты связности in-place.
+    """
     for x in examples:
         id2entity = {}
         g = {}

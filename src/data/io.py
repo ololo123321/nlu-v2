@@ -14,6 +14,7 @@ from src.data.base import (
     Example,
     LineTypes,
     NerEncodings,
+    Normalization,
     Span,
     Token,
     TOKENS_EXPRESSION
@@ -223,14 +224,17 @@ def parse_example(
         return example
 
     # .ann
-    id2entity = {}
-    id2event = {}
-    id2arc = {}
-    id2arg = {}
+    id2entity = {}  # id -> value
+    id2event = {}  # id -> value
+    id2arc = {}  # id -> value
+    id2attr = {}  # id_arg -> value
+    id2comment = {}  # id_arg -> value
+    id2norm = {}  # id_arg -> value
 
     with open(path_ann) as f:
         for line in f:
             line = line.strip()
+            line = re.sub("\t+", "\t", line)  # ensure single tab separator
             content = line.split('\t')
             line_tag = content[0]
             line_type = line_tag[0]
@@ -269,7 +273,7 @@ def parse_example(
                 )
                 entity.span = entity_span  # TODO: временное решение
                 id2entity[entity.id] = entity
-                id2arg[entity.id] = entity
+                # id2arg[entity.id] = entity
 
             # отношение
             elif line_type == LineTypes.RELATION:
@@ -282,7 +286,7 @@ def parse_example(
                 dep = arg2.split(":")[1]
                 arc = Arc(id=line_tag, head=head, dep=dep, rel=re_label)
                 id2arc[arc.id] = arc
-                id2arg[arc.id] = arc
+                # id2arg[arc.id] = arc
 
             # событие
             elif line_type == LineTypes.EVENT:
@@ -318,7 +322,7 @@ def parse_example(
                     event.args.append(arg)
 
                 id2event[event.id] = event
-                id2arg[event.id] = event
+                # id2arg[event.id] = event
 
             # атрибут
             elif line_type == LineTypes.ATTRIBUTE or line_type == LineTypes.ATTRIBUTE_OLD:
@@ -334,20 +338,29 @@ def parse_example(
                 else:
                     raise BadLineError(f"strange attribute line: {line}")
 
-                try:
-                    id2arg[id_arg].attrs.append(attr)
-                except KeyError:
-                    raise BadLineError("there is no arg for provided attr")
+                # try:
+                #     id2arg[id_arg].attrs.append(attr)
+                # except KeyError:
+                #     raise BadLineError("there is no arg for provided attr")
+                id2attr[id_arg] = attr
 
             # комментарии.
             elif line_type == LineTypes.COMMENT:
                 # #0\tAnnotatorNotes T3\tfoobar\n
                 _, id_arg = content[1].split()
                 msg = content[2]
-                try:
-                    id2arg[id_arg].comment = msg
-                except KeyError:
-                    raise BadLineError("there is no arg for provided comment")
+                # try:
+                #     id2arg[id_arg].comment = msg
+                # except KeyError:
+                #     raise BadLineError("there is no arg for provided comment")
+                id2comment[id_arg] = msg
+
+            # нормализация
+            elif line_type == LineTypes.NORMALIZATION:
+                # N1\tReference T17 egrul:1075475006342t\tОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "ГЛОБУС"\n
+                _, id_arg, ref = content[1].split()
+                norm = Normalization(id=line_tag, ref=ref, text=content[2])
+                id2norm[id_arg] = norm
 
             # TODO: разобраться с этим
             elif line_type == LineTypes.EQUIV:
@@ -356,20 +369,25 @@ def parse_example(
             else:
                 raise Exception(f"invalid line: {line}")
 
-    arcs = list(id2arc.values())
-    events = list(id2event.values())
+    # {COMMENT, ATTRIBUTE, NORMALIZATION} -> {ENTITY, ARC, EVENT}
+    id2arg = {}
+    for d in [id2entity, id2arc, id2event]:
+        id2arg.update(d)
+    for id_arg, a in id2attr.items():
+        id2arg[id_arg].attrs.append(a)
+    for id_arg, msg in id2comment.items():
+        id2arg[id_arg].comment = msg
+    for id_arg, norm in id2norm.items():
+        id2arg[id_arg].norms.append(norm)
 
     # сущности: расставление флагов is_event_trigger
-    # оказывается, событие может быть указано раньше триггера в файле .ann
-    for event in events:
+    for event in id2event.values():
         id2entity[event.trigger].is_event_trigger = True
-
-    entities = list(id2entity.values())
 
     # очистка названия сущности от "плохих символов"
     # фикс спана сущности
     # присвоение токенов сущности
-    for entity in entities:
+    for entity in id2entity.values():
         start, end = entity.span
         start_new = start
         end_new = end
@@ -401,9 +419,9 @@ def parse_example(
         id=filename,
         text=text_clean,
         tokens=tokens,
-        entities=entities,
-        arcs=arcs,
-        events=events
+        entities=list(id2entity.values()),
+        arcs=list(id2arc.values()),
+        events=list(id2event.values())
     )
 
     return example
